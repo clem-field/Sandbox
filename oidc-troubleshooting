@@ -1,0 +1,57 @@
+Yes, issues with inline scripts or missing nonce values can absolutely cause OpenID Connect state problems, especially in browser-based apps (SPAs, web apps using OIDC JS libraries) due to Content Security Policy (CSP) enforcement.
+
+How Inline Scripts and Nonces Can Cause OIDC state Failures
+
+1. The state is stored in browser memory or session (e.g., localStorage, sessionStorage)
+
+Most OIDC clients store the state parameter client-side before redirecting to the IdP. On return, they expect it to still be present to validate the response.
+
+Problem:
+	•	If your CSP blocks inline scripts, or scripts are stripped due to missing nonce, the OIDC client’s JS cannot run properly.
+	•	This breaks:
+	•	state generation
+	•	code_verifier storage for PKCE
+	•	token validation
+	•	Result: message.State is null or empty or similar error.
+
+2. Missing or Incorrect nonce in CSP
+
+If you’re using a strict CSP like:
+
+Content-Security-Policy: script-src 'self' 'nonce-abc123'
+
+But your inline or OIDC client script does not include the matching nonce="abc123", the browser will block it from executing.
+
+Result: The OIDC library won’t run signinRedirect or won’t process the callback correctly, and the state check fails.
+
+3. Script Tag Injection via HTML Templates
+
+If you generate HTML dynamically (e.g., server-side or with frameworks like Angular/React SSR), and include the OIDC script without applying the nonce, it won’t be allowed to execute under CSP.
+
+How to Fix It
+
+For browser-based apps (e.g., using oidc-client, @azure/msal-browser, etc.):
+	•	Ensure CSP allows the OIDC scripts:
+	•	Either permit inline scripts temporarily with 'unsafe-inline' (not recommended for production),
+	•	Or use a nonce:
+
+<script nonce="your-nonce-value">
+  // OIDC init code
+</script>
+
+
+	•	Pass the same nonce in your CSP header and the script tag.
+
+For frameworks like Next.js, ASP.NET Razor, etc.:
+	•	Use server-side nonce injection when rendering the page and dynamically apply it to both:
+	•	The CSP header
+	•	Any <script> tag initializing OIDC
+
+Best Practice
+
+Do	Don’t
+Use nonce and match it in both headers and scripts	Hardcode 'unsafe-inline' in production
+Store state in secure cookies or encrypted session if possible	Rely solely on localStorage if CSP prevents access
+Validate OIDC client’s callback handling script loads and runs	Assume state is persisted without verifying DOM/cookies
+
+Would you like help modifying your app to inject CSP nonce headers correctly or debug a specific OIDC flow you’re working on (e.g., React, Vue, ASP.NET, etc.)?
