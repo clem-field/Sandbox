@@ -54,4 +54,4 @@ Use nonce and match it in both headers and scripts	Hardcode 'unsafe-inline' in p
 Store state in secure cookies or encrypted session if possible	Rely solely on localStorage if CSP prevents access
 Validate OIDC client’s callback handling script loads and runs	Assume state is persisted without verifying DOM/cookies
 
-Would you like help modifying your app to inject CSP nonce headers correctly or debug a specific OIDC flow you’re working on (e.g., React, Vue, ASP.NET, etc.)?
+
