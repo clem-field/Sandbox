@@ -1,0 +1,72 @@
+from bs4 import BeautifulSoup
+import requests
+
+
+cci_html = open("/Users/brandonfield/Python/sample_files/U_CCI_List.html")
+
+response = cci_html
+soup = BeautifulSoup(response, 'html.parser')
+# Select and modify the table as needed
+# Then convert to DataFrame
+cci_list = []
+context = []
+ref = []
+tbodies = soup.find_all('tbody')
+trs = soup.find_all('tr')
+tds = soup.find_all('td')
+
+columns = ['CCI:', "Status:", 'Contributor:', 'Published Date:','Definition:', 'Type:', 'References:, ']
+
+for tr in trs:
+    ref =[]
+    info = tr.text
+    inf = info.replace("\t\t\t\t\t\t", "")
+    info = info.splitlines()
+    print(info)
+    try:
+        if info.index('CCI:') > 0:
+            cci_id = info[info.index('CCI:')+1]
+            # print(cci_id)
+    except:
+        next
+    try:
+        if info.index('Status:') > 0:
+            cci_status = info[info.index('Status:')+1]
+            # print(cci_status)
+    except:
+        next
+    try:
+        if info.index('Contributor:') > 0:
+            contrib = info[info.index('Contributor:')+1]
+            print(contrib)
+    except:
+        next
+    try:
+        if info.index('Published Date:') > 0:
+            published = info[info.index('Published Date:')+1]
+            # print(published)
+    except:
+        next
+    try:
+        if info.index('Definition:') > 0:
+            defined = info[info.index('Definition:')+1]
+            # print(defined)
+    except:
+        next
+    try:
+        if any('NIST:' in sub for sub in info)==True:
+            refer = str([item for item in info if 'NIST:' in item])
+            refer = refer.replace("[","")
+            refer = refer.replace("]","")
+            refer = refer.replace("'","")
+            refer.split(':')
+            refer = str(refer)
+            ref.append(refer)
+            # print(ref)
+    except:
+        next
+row = [cci_id, cci_status, published, definition, ref]
+    # row = [cci_id, cci_status]
+cci_list.append(row)
+
+cci_list
