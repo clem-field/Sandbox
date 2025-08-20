@@ -13,4 +13,4 @@ provider "aws" {
   profile = "default"
 }
 
-# Orchestrate resources (no need for modules here, but could extend to child modules)
+# Add modules here
