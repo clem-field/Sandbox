@@ -10,7 +10,7 @@ resource "aws_ecs_task_definition" "task" {
   container_definitions = jsonencode([
     {
       name      = "nginx"
-      image     = "${locals.account_id}.dkr.ecr.${locals.region}.amazonaws.com/${locals.ecr_nginx_repo}:latest"
+      image     = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.ecr_nginx_repo}:latest"
       cpu       = 256
       memory    = 512
       essential = true
@@ -25,14 +25,14 @@ resource "aws_ecs_task_definition" "task" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
-          awslogs-region        = locals.region
+          awslogs-region        = var.region
           awslogs-stream-prefix = "nginx"
         }
       }
     },
     {
       name      = "vulcan"
-      image     = "${locals.account_id}.dkr.ecr.${locals.region}.amazonaws.com/${locals.ecr_vulcan_repo}:latest"
+      image     = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.ecr_vulcan_repo}:latest"
       cpu       = 384
       memory    = 768
       essential = true
@@ -53,14 +53,14 @@ resource "aws_ecs_task_definition" "task" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
-          awslogs-region        = locals.region
+          awslogs-region        = var.region
           awslogs-stream-prefix = "vulcan"
         }
       }
     },
     {
       name      = "heimdall"
-      image     = "${locals.account_id}.dkr.ecr.${locals.region}.amazonaws.com/${locals.ecr_heimdall_repo}:latest"
+      image     = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${var.ecr_heimdall_repo}:latest"
       cpu       = 384
       memory    = 768
       essential = true
@@ -81,7 +81,7 @@ resource "aws_ecs_task_definition" "task" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
-          awslogs-region        = locals.region
+          awslogs-region        = var.region
           awslogs-stream-prefix = "heimdall"
         }
       }

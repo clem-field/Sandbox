@@ -1,5 +1,5 @@
 resource "aws_ecs_service" "service" {
-  name            = "my-ecs-service"
+  name            = "mitre-ecs-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.task.arn
   desired_count   = 1

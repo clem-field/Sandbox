@@ -1,12 +1,12 @@
 resource "aws_vpc" "main" {
-  cidr_block = locals.vpc_cidr
+  cidr_block = var.vpc_cidr
   tags = { Name = "ecs-vpc" }
 }
 
 resource "aws_subnet" "public1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${locals.region}a"
+  availability_zone       = "${var.region}a"
   map_public_ip_on_launch = true
   tags = { Name = "public-subnet-1" }
 }
@@ -14,7 +14,7 @@ resource "aws_subnet" "public1" {
 resource "aws_subnet" "public2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.2.0/24"
-  availability_zone       = "${locals.region}b"
+  availability_zone       = "${var.region}b"
   map_public_ip_on_launch = true
   tags = { Name = "public-subnet-2" }
 }

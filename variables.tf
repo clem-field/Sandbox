@@ -20,5 +20,6 @@ variable "ecr_heimdall_repo" {
 
 variable "account_id" {
   description = "AWS Account ID for ECR URIs"
+  default = 1234567890
   # Set this to your account ID
 }
