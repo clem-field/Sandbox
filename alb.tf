@@ -38,8 +38,8 @@ resource "aws_lb_listener" "http" {
 }
 
 # Add HTTPS listener in 
-data "aws_acm_certificate" "example" {
-  domain   = "example.com"  # Replace with your domain
+data "aws_acm_certificate" "risk-sentinel" {
+  domain   = "risk-sentinel.info"  
   statuses = ["ISSUED"]
 }
 
@@ -48,7 +48,7 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = data.aws_acm_certificate.example.arn
+  certificate_arn   = data.aws_acm_certificate.risk-sentinel.arn
 
   default_action {
     type             = "forward"

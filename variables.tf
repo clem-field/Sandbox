@@ -20,6 +20,11 @@ variable "ecr_heimdall_repo" {
 
 variable "account_id" {
   description = "AWS Account ID for ECR URIs"
-  default = 1234567890
-  # Set this to my account ID
+  default = 752531709667
+  # Set this to your account ID
+}
+
+variable "domain_name" {
+  description = "Domain name for Route 53"
+  default     = "risk-sentinel.info"
 }
