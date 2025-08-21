@@ -41,6 +41,13 @@ config:
     theme: redux
 ---
 flowchart LR
-    A["`ALB`"] --> |HTTPS| B["`NGINX`"] --> |HTTP| C["`vulcan.risk-sentinel.info`"]
-    B --> |HTTP| D["`heimdall.risk-sentinel.info`"]
+    A["`ALB`"]
+    B["`NGINX`"]
+    C["`vulcan.risk-sentinel.info`"]
+    D["`heimdall.risk-sentinel.info`"]
+    A --> |HTTPS| B 
+    subgraph ECS 
+    B --> |HTTP| C
+    B --> |HTTP| D
+    end
 ```
