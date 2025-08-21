@@ -28,10 +28,10 @@ flowchart TD
 ```
 ## Outstanding work before functional
 
-[] RDS to attach Vulcan and Heimdall
-[] Environment variables for Heimdall
-[] Environment variables for Vulcan
-[] Validate NGINX has HTTPS and Reverse Proxy
+- [] RDS to attach Vulcan and Heimdall
+- [] Environment variables for Heimdall
+- [] Environment variables for Vulcan
+- [] Validate NGINX has HTTPS and Reverse Proxy
 
 ## Desired Function
 
