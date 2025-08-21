@@ -26,8 +26,12 @@ flowchart TD
     B --> |pending images in ECR| C["`ECS will start:
     Need to push images to ECR before it will succeed`"]
 ```
-## Outstanding work before functional
+## Work to make it functional
 
+- [*] Create the ECR
+- [*] Re-tag images
+- [ ] Route53 Transfer of risk-sentinel - in-progress
+- [ ] Update ECS permissions for retrieving the images
 - [ ] RDS to attach Vulcan and Heimdall
 - [ ] Environment variables for Heimdall
 - [ ] Environment variables for Vulcan
