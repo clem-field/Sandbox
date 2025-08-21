@@ -28,8 +28,8 @@ flowchart TD
 ```
 ## Work to make it functional
 
-- [ * ] Create the ECR
-- [ * ] Re-tag images
+- [x] Create the ECR
+- [x] Re-tag images
 - [ ] Route53 Transfer of risk-sentinel - in-progress
 - [ ] Update ECS permissions for retrieving the images
 - [ ] RDS to attach Vulcan and Heimdall
