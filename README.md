@@ -49,9 +49,9 @@ flowchart LR
     B["`NGINX`"]
     C["`vulcan.risk-sentinel.info`"]
     D["`heimdall.risk-sentinel.info`"]
-    A --> |HTTPS| B 
+    A <--> |HTTPS| B 
     subgraph ECS 
-    B --> |HTTP| C
-    B --> |HTTP| D
+    B <--> |HTTP| C
+    B <--> |HTTP| D
     end
 ```

@@ -11,3 +11,6 @@ tf.plan
 
 # aws account
 aws.tf
+
+# Local vars
+terraform.tfvars
