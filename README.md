@@ -30,11 +30,11 @@ flowchart TD
 
 - [x] Create the ECR
 - [x] Re-tag images
-- [ ] Route53 Transfer of risk-sentinel - in-progress
+- [x] Route53 Transfer of risk-sentinel - in-progress
 - [ ] Update ECS permissions for retrieving the images
-- [ ] RDS to attach Vulcan and Heimdall
-- [ ] Environment variables for Heimdall
-- [ ] Environment variables for Vulcan
+- [x] RDS to attach Vulcan and Heimdall
+- [x] Environment variables for Heimdall
+- [x] Environment variables for Vulcan
 - [ ] Validate NGINX has HTTPS and Reverse Proxy
 
 ## Desired Function
@@ -49,9 +49,25 @@ flowchart LR
     B["`NGINX`"]
     C["`vulcan.risk-sentinel.info`"]
     D["`heimdall.risk-sentinel.info`"]
+    E["`RDS PostgreSQL`"]
+    F["`Secrets Manager`"]
+    f["`KMS`"]
+    G["`Okta`"]
     A <--> |HTTPS| B 
     subgraph ECS 
     B <--> |HTTP| C
     B <--> |HTTP| D
     end
+    subgraph RDS
+    C <--> | SSL | E
+    D <--> | SSL | E
+    end
+    B <--> | HTTPS | G
+    subgraph KMS_SM
+    F
+    f
+    end
+    C <--> f <--> F
+    D <--> f <--> F 
+    
 ```
