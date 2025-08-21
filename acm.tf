@@ -1,9 +1,9 @@
 resource "aws_acm_certificate" "cert" {
-  domain_name       = var.domain_name  # risk-sentinel.info
+  domain_name       = var.domain_name  
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "*.${var.domain_name}",  # e.g., *.risk-sentinel.info for subdomains
+    "*.${var.domain_name}",  
     "vulcan.${var.domain_name}",
     "heimdall.${var.domain_name}"
   ]

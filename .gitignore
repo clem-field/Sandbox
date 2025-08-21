@@ -8,3 +8,6 @@
 
 # tf plan files
 tf.plan
+
+# aws account
+aws.tf
