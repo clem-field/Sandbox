@@ -7,10 +7,10 @@ resource "aws_db_subnet_group" "rds" {
 resource "aws_db_instance" "main" {
   identifier              = var.rds_instance_name
   engine                  = "postgres"
-  engine_version          = "15.5"
+  engine_version          = 17.6
+  storage_type            = "gp2"
   instance_class          = "db.t3.micro"  # Adjust based on needs
   allocated_storage       = 20
-  storage_type            = "gp2"
   username                = var.db_username
   password                = var.db_password
   db_name                 = var.db_name

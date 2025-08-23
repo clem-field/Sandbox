@@ -51,7 +51,7 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "RAILS_SERVE_STATIC_FILES"
-          value = true
+          value = "true"
         },
         {
           name = "RAILS_ENV"
@@ -67,19 +67,19 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "VULCAN_ENABLE_LOCAL_LOGIN"
-          value = true
+          value = "true"
         },
         {
           name = "VULCAN_ENABLE_EMAIL_CONFIRMATION"
-          value = false
+          value = "false"
         },
         {
           name = "VULCAN_SESSION_TIMEOUT"
-          value = 60
+          value = "60"
         },
         {
           name = "VULCAN_ENABLE_USER_REGISTRATION"
-          value = false
+          value = "false"
         },
         {
           name = "ADMINUSER"
@@ -91,15 +91,15 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "VULCAN_PROJECT_CREATE_PERMISSION"
-          value = false
+          value = "false"
         },
         {
           name = "VULCAN_ENABLE_LDAP"
-          value = false
+          value = "false"
         },
         {
           name = "VULCAN_ENABLE_OIDC"
-          value = false
+          value = "false"
         },
         {
           name = "VULCAN_OIDC_PROVIDER"
@@ -119,15 +119,15 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "VULCAN_OIDC_PORT"
-          value = 443
+          value = "443"
         },
         {
           name = "RAILS_LOG_TO_STDOUT"
-          value = true
+          value = "true"
         },
         {
           name = "FORCE_SSL"
-          value = true
+          value = "true"
         },
         {
           name = "VULCAN_OIDC_SCHEME"
@@ -175,11 +175,11 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "VULCAN_SMTP_TLS"
-          value = false
+          value = "false"
         },
         {
           name = "VULCAN_SMTP_ENABLE_STARTTLS_AUTO"
-          value = false
+          value = "false"
         },
         {
           name = "CIPHER_PASSWORD"
@@ -266,24 +266,20 @@ resource "aws_ecs_task_definition" "task" {
           value = "production"
         },
         {
-          name = "PORT"
-          value = 3001
-        },
-        {
           name = "ADMIN_EMAIL"
           value = "kc8yhe@me.com"
         },
         {
           name = "ADMIN_USES_EXTERNAL_AUTH"
-          value = false
+          value = "false"
         },
         {
           name = "LOCAL_LOGIN_DISABLED"
-          value = false
+          value = "false"
         },
         {
           name = "REGISTRATION_DISABLED"
-          value = true
+          value = "true"
         },
         {
           name = "OKTA_TENANT"
@@ -291,7 +287,7 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "ONE_SESSION_PER_USER"
-          value = true
+          value = "true"
         },
         {
           name = "JWT_EXPIRE_TIME"
@@ -319,11 +315,11 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "DATABASE_SSL"
-          value = true
+          value = "true"
         },
         {
           name = "DATABASE_SSL_INSECURE"
-          value = false
+          value = "false"
         },
         {
           name = "DATABASE_SSL_CA"
@@ -359,7 +355,7 @@ resource "aws_ecs_task_definition" "task" {
         },
         {
           name = "OKTA_USE_HTTPS_PROXY"
-          value = true
+          value = "true"
         },
         {
           name = "DATABASE_PASSWORD"

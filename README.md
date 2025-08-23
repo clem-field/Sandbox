@@ -49,7 +49,7 @@ flowchart LR
     B["`NGINX`"]
     C["`vulcan.risk-sentinel.info`"]
     D["`heimdall.risk-sentinel.info`"]
-    E["`RDS PostgreSQL`"]
+    E["`PostgreSQL`"]
     F["`Secrets Manager`"]
     f["`KMS`"]
     G["`Okta`"]
