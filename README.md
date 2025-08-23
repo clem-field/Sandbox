@@ -36,6 +36,8 @@ flowchart TD
 - [x] Environment variables for Heimdall
 - [x] Environment variables for Vulcan
 - [ ] Validate NGINX has HTTPS and Reverse Proxy
+- [ ] Need to fix environment variables
+- [ ] Refactor to module format to best practices
 
 ## Desired Function
 
