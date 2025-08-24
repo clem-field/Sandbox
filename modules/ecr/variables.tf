@@ -1,11 +1,14 @@
-variable "ecr_nginx_repo" {
-  default = "custom-nginx"
+variable "nginx_repo_name" {
+  description = "Name of the ECR repository for nginx"
+  type        = string
 }
 
-variable "ecr_vulcan_repo" {
-  default = "vulcan"
+variable "vulcan_repo_name" {
+  description = "Name of the ECR repository for vulcan"
+  type        = string
 }
 
-variable "ecr_heimdall_repo" {
-  default = "heimdall2"
+variable "heimdall_repo_name" {
+  description = "Name of the ECR repository for heimdall2"
+  type        = string
 }
