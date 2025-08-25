@@ -2,8 +2,8 @@ resource "aws_ecs_task_definition" "task" {
   family                   = "multi-container-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "1024"
-  memory                   = "2048"
+  cpu                      = 1024
+  memory                   = 2048
   execution_role_arn       = var.execution_role_arn
   tags = { Name = "ecs-task-def" }
 
