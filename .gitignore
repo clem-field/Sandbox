@@ -14,3 +14,6 @@ aws.tf
 
 # Local vars
 terraform.tfvars
+
+# Mac Tracking
+*.DS_Store

@@ -18,3 +18,10 @@ resource "aws_ecs_service" "service" {
     container_port   = 80
   }
 }
+
+module "ecr" {
+  source = "../ecr"
+  vulcan_repo_name = "vulcan"
+  nginx_repo_name =  "nginx"
+  heimdall_repo_name = "heimdall"
+}

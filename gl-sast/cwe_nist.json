@@ -1,0 +1,28 @@
+[
+    {
+        "cwe_id": 5,
+        "cwe_name": "J2EE Misconfiguration: Data Transmission Without Encryption",
+        "nist_id": [
+            {
+                "rev4": [
+                    "SC-8"
+                ],
+                "rev5": []
+            }
+        ],
+        "nist_name": "Transmission Confidentiality and Integrity"
+    },
+    {
+        "cwe_id": 6,
+        "cwe_name": "J2EE Misconfiguration: Insufficient Session-ID Length",
+        "nist_id": [
+            {
+                "rev4": [
+                    "SC-23"
+                ],
+                "rev5": []
+            }
+        ],
+        "nist_name": "Session Authenticity"
+    }
+]

@@ -1,0 +1,110 @@
+[
+    {
+        "family": "Access Control (AC)",
+        "control_id": "AC-1 (a)",
+        "title": "ACCESS CONTROL POLICY AND PROCEDURES",
+        "language": "some text",
+        "supplemental_guidance": "some more text",
+        "implementation_guidance": "yet more text",
+        "nist_discussion": "references",
+        "related_controls": [
+            "PM-9"
+        ],
+        "nist": [
+            "None"
+        ],
+        "nist_sort_added": "AC-01(a)",
+        "nist_control_clean": "AC-01(A)",
+        "org_ref": [
+            "None"
+        ],
+        "overlay": [
+            "Low", "Mod", "High"
+        ],
+        "nist_control": "AC-1(a)",
+        "assessment_methods": "Missing",
+        "assessment_objective": "Missing",
+        "check": "how to check",
+        "fix": "how to fix",
+        "tags": [
+            {
+                "nist": [
+                    "AC-01(a)",
+                    "AC-1(a)",
+                    "AC-01(A)"
+                ],
+                "grc": "AC-1 (a)",
+                "baseline": [
+                    "Low", "Mod", "High"
+                ],
+                "org_ref": [
+                    "None"
+                ],
+                "nist_references": [
+                    "None"
+                ],
+                "related_controls": [
+                    "PM-9"
+                ]
+            }
+        ],
+        "code": "code_block",
+        "baseline_id": "R4-AC-1(a)",
+        "id": "None",
+        "assessment_year": "Unchecked"
+    },
+    {
+        "family": "Access Control (AC)",
+        "control_id": "AC-1 (b)",
+        "title": "ACCESS CONTROL POLICY AND PROCEDURES",
+        "language": "some text",
+        "supplemental_guidance": "some more text",
+        "implementation_guidance": "yet more text",
+        "nist_discussion": "references",
+        "related_controls": [
+            "PM-9"
+        ],
+        "nist": [
+            "None"
+        ],
+        "nist_sort_added": "AC-01(b)",
+        "nist_control_clean": "AC-01(B)",
+        "org_ref": [
+            "None"
+        ],
+        "overlay": [
+            "Low", "Mod", "High"
+        ],
+        "nist_control": "AC-1(b)",
+        "assessment_methods": "Missing",
+        "assessment_objective": "Missing",
+        "check": "how to check",
+        "fix": "how to fix",
+        "tags": [
+            {
+                "nist": [
+                    "AC-01(b)",
+                    "AC-1(b)",
+                    "AC-01(B)"
+                ],
+                "xacta": "AC-1 (b)",
+                "baseline": [
+                    "Low", "Mod", "High"
+                ],
+                "org_ref": [
+                    "None"
+                ],
+                "nist_references": [
+                    "None"
+                ],
+                "related_controls": [
+                    "PM-9"
+                ]
+            }
+        ],
+        "code": "code_block",
+        "baseline_id": "R4-AC-1(b)",
+        "id": "None",
+        "assessment_year": "Unchecked"
+    }
+]
