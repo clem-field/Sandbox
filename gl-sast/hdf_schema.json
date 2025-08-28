@@ -1,0 +1,87 @@
+{
+    "platform": {
+        "name": "GitLab",
+        "release": "1"
+    },
+    "profiles": [
+        {
+            "attributes":[],
+            "controls":[
+                {
+                    "code": "rule_name + description + applicable_platforms",
+                    "desc": "description",
+                    "descriptions": [
+                        {
+                            "data": "rule_name",
+                            "label": "default"
+                        },
+                        {
+                            "data": "extended_description",
+                            "label": "check"
+                        },
+                        {
+                            "data": "potential_mitigations",
+                            "label": "fix"
+                        }
+                    ],
+                    "id": "cwe_id",
+                    "impact": "calculated based on severity",
+                    "refs":[{
+                        "url": "URL for cwe"
+                    }
+                    ],
+                    "results": [
+                        {
+                            "code_desc": "description",
+                            "message": "Vulnerability Found in source code",
+                            "run_time": "gl-sast-report start_time",
+                            "status": "passed/failed based on threshold"
+                        }
+                    ],
+                    "source_location":{
+                        "line":"gl-sast-report start_line + / + gl-sast-report end_line",
+                        "ref": "gl-sast-report location/file"
+                    },
+                    "tags":{
+                        "severity": "sast report severity for CWE",
+                        "nist": ["List of nist controls previously mapped"],
+                        "grc": ["list of GRC controls from catalog.json"],
+                        "cwe": "CWE-ID",
+                        "owasp": ["gl-sast-report, identifiers['type']=owasp"],
+                        "cci":"CCI's for given controls",
+                        "category": "gl-sast-report category"
+                    },
+                    "title":"rule_name",
+                    "waiver_data":{}
+                }
+            ],
+            "copyright":"",
+            "copyright_email":"",
+            "groups":[],
+            "license": "Apache-2.0",
+            "maintainer":"",
+            "name":"GitLab SAST Scanning Profile",
+            "sha256": "sha",
+            "status":"loaded",
+            "summary":"GitLab enriched profile",
+            "supports":[{
+                "platform-name": "supported languages",
+                "release": "1.0"
+            }],
+            "statistics":{
+                "duration":0.000139
+            },
+            "version": "",
+            "passthrough":{
+                "auxiliary_data":[
+                    {
+                        "name": "some new data",
+                        "data":{
+                            
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
