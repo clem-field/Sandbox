@@ -1,0 +1,22 @@
+[
+    {
+        "cwe_id": 5,
+        "cwe_name": "text",
+        "nist_id":[
+            {
+                "rev4": "SC-8",
+                "rev5": []
+            }
+        ]
+    },
+    {
+        "cwe_id": 6,
+        "cwe_name": "text",
+        "nist_id":[
+            {
+                "rev4": "SC-28",
+                "rev5": []
+            }
+        ]
+    }
+]

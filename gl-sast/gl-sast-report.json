@@ -1,0 +1,26 @@
+{
+    "scan": {
+        "analyzer": {
+            "id": "semgrep",
+            "name": "Semgrep",
+            "url": "https://gitlab.com",
+            "vendor": {
+                "name": "GitLab"
+            },
+            "version": "5.30.0"
+        },
+        "scanner": {
+            "id": "semgrep",
+            "name": "Semgrep",
+            "url": "https://gitlab.com",
+            "vendor": {
+                "name": "GitLab"
+            },
+            "version": "1.107.0"
+        },
+        "type": "sast",
+        "start_time": "2025-04-01T14:15:07",
+        "end_time": "2025-04-01T14:15:19",
+        "status": "success"
+    }
+}
