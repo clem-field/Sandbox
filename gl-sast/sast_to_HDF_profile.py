@@ -1,35 +1,79 @@
-import libraries as lib
-import locals as var
+import json
+import hashlib
+import datetime
+from collections import Counter
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
+# Assuming locals.py defines INPUT_FOLDER, OUTPUT_FOLDER, THRESHOLDS
+# Example: var.INPUT_FOLDER = "./", var.OUTPUT_FOLDER = "./", var.THRESHOLDS = "thresholds.yaml"
 
 # Load JSON files
 def load_json_file(file_path):
     with open(file_path, 'r') as f:
-        return lib.json.load(f)
+        return json.load(f)
 
-def generate_sha(data: str) -> str:
+def generate_sha(data):
     """Generate SHA256 hash for profile data"""
     print(f"📝 Signing gl-sast-report")
-    return lib.hashlib.sha256(data.encode()).hexdigest() 
+    serialized_data = json.dumps(data, sort_keys=True)
+    return hashlib.sha256(serialized_data.encode()).hexdigest()
 
 def load_yaml_file(file_path):
+    if not yaml:
+        print(f"❌ PyYAML module not found. Using default thresholds.")
+        return {
+            'passed': {
+                'info': True,
+                'low': True,
+                'medium': True,
+                'high': False,
+                'critical': False,
+                'unknown': True
+            },
+            'failed': {
+                'critical': {'max': 0},
+                'high': {'max': 1},
+                'medium': {'max': 10},
+                'low': {'max': 25},
+                'unknown': {'max': 15}
+            }
+        }
     try:
         with open(file_path, 'r') as f:
-            print(f"📂  Loaded {thresholds_file} for risk tolerance")
-            return lib.yaml.safe_load(f)
+            print(f"📂 Loaded {file_path} for risk tolerance")
+            return yaml.safe_load(f) or {'passed': {}, 'failed': {}}
     except Exception as e:
-        print(f"❌  Error loading YAML file {file_path}: {str(e)}")
-        return{'passed': {}, 'failed': {}}
+        print(f"❌ Error loading YAML file {file_path}: {str(e)}")
+        return {
+            'passed': {
+                'info': True,
+                'low': True,
+                'medium': True,
+                'high': False,
+                'critical': False,
+                'unknown': True
+            },
+            'failed': {
+                'critical': {'max': 0},
+                'high': {'max': 1},
+                'medium': {'max': 10},
+                'low': {'max': 25},
+                'unknown': {'max': 15}
+            }
+        }
 
 # Map GitLab SAST severity to HDF impact and severity
 def map_severity_and_impact(sast_severity, thresholds):
     severity_map = {
-        'Critical': {'severity': 'critical', 'impact': 0.9, 'status': 'failed'},
-        'High': {'severity': 'high', 'impact': 0.7, 'status': 'failed'},
-        'Medium': {'severity': 'medium', 'impact': 0.5, 'status': 'failed'},
-        'Low': {'severity': 'low', 'impact': 0.3, 'status': 'passed'},
-        'Info': {'severity': 'info', 'impact': 0.1, 'status': 'passed'},
-        'Unknown': {'severity': 'unknown', 'impact': 0.5, 'status': 'passed'}
+        'Critical': {'severity': 'critical', 'impact': 0.9},
+        'High': {'severity': 'high', 'impact': 0.7},
+        'Medium': {'severity': 'medium', 'impact': 0.5},
+        'Low': {'severity': 'low', 'impact': 0.3},
+        'Info': {'severity': 'info', 'impact': 0.1},
+        'Unknown': {'severity': 'unknown', 'impact': 0.5}
     }
     info = severity_map.get(sast_severity, {'severity': 'unknown', 'impact': 0.5})
     passed_rules = thresholds.get('passed', {})
@@ -45,20 +89,18 @@ def normalize_nist_control(control_id):
 def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
     nist_controls = set()
     grc_controls = set()
-    ofr_refs = set()
+    org_refs = set()
     nist_references = set()
     related_controls = set()
-    cwe_id = cwe_id.replace('CWE-', '')  # Normalize (e.g., 'CWE-614' -> '614')
+    cwe_id = cwe_id.replace('CWE-', '')
     
-    # Find CWE entry in sast_cwe.json
     cwe_entry = next((entry for entry in cwe_data if entry['id'] == cwe_id), None)
     if not cwe_entry:
+        print(f"⚠️ CWE {cwe_id} not found in sast_cwe.json")
         return [], [], [], [], [], cwe_entry
     
-    # Get rev4_controls and rev5_controls
     controls = cwe_entry.get('rev4_controls', []) + cwe_entry.get('rev5_controls', [])
     
-    # Match controls against catalog.json
     for control in controls:
         normalized_control = normalize_nist_control(control)
         for catalog_entry in catalog_data:
@@ -66,20 +108,18 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
             catalog_tags_nist = [normalize_nist_control(n) for tag in catalog_entry.get('tags', []) for n in tag.get('nist', [])]
             if normalized_control == catalog_nist or normalized_control in catalog_tags_nist:
                 nist_controls.add(normalized_control)
-                # Add GRC from catalog
                 for tag in catalog_entry.get('tags', []):
                     if tag.get('grc'):
                         grc_controls.add(tag['grc'])
-        for org_ref in catalog_entry.get('org_ref', []):
-            if org_ref != "None":
-                org_refs.add(org_ref)
-            for tag in catalog_entry.get('tags', []):
-                for nist_ref in tag.get('nist_references', []):
-                    if nist_ref != "None":
-                        nist_references.add(nist_ref)
-            for rel_control in catalog_entry.get('related_controls', []):
-                if rel_control != "None":
-                    related_controls.add(rel_control)
+                    for nist_ref in tag.get('nist_references', []):
+                        if nist_ref != "None":
+                            nist_references.add(nist_ref)
+                for org in catalog_entry.get('org_ref', []):
+                    if org != "None":
+                        org_refs.add(org)
+                for rel_control in catalog_entry.get('related_controls', []):
+                    if rel_control != "None":
+                        related_controls.add(rel_control)
     
     return (
         sorted(list(nist_controls)),
@@ -93,20 +133,26 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
 # Check failure thresholds and return compliance status
 def check_failure_thresholds(vuln_counts, thresholds):
     failed_limits = thresholds.get('failed', {})
-    print(f"🛟  Checking thresholds {failed_limits}")
+    print(f"🛟 Checking thresholds {failed_limits}")
     compliance_issues = []
     for severity, count in vuln_counts.items():
         max_allowed = failed_limits.get(severity.lower(), {}).get('max', float('inf'))
         if count > max_allowed:
             compliance_issues.append(f"{severity} vulnerabilities ({count}) exceed max allowed ({max_allowed})")
-    print(f"🆘  Compliance Issues detected {compliance_issues}")
+    print(f"🆘 Compliance Issues detected {compliance_issues}")
     return compliance_issues
 
 # Convert GitLab SAST report to HDF per the schema
 def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
-    duration = lib.datetime.strptime(sast_file["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - lib.datetime.strptime(sast_file["scan"].get("start_time", "%Y-%m-%dT%H:%M:%S"))
-    run_time = round((duration.total_seconds() / 86400), 6)
-    print(f"⏱️  Duration calculated as {run_time}")
+    try:
+        duration = datetime.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
+                   datetime.datetime.strptime(sast_report["scan"].get("start_time", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
+        run_time = round(duration.total_seconds() / 86400, 6)
+    except (KeyError, ValueError) as e:
+        print(f"⚠️ Error calculating duration: {str(e)}. Using default run_time.")
+        run_time = 0.000139
+
+    print(f"⏱️ Duration calculated as {run_time}")
     hdf_output = {
         "platform": {
             "name": "GitLab",
@@ -122,7 +168,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                 "license": "Apache-2.0",
                 "maintainer": "",
                 "name": "GitLab SAST Scanning Profile",
-                "sha256": str(generate_sha(sast_file)),
+                "sha256": generate_sha(sast_report),
                 "status": "loaded",
                 "summary": "GitLab enriched profile",
                 "supports": [
@@ -131,46 +177,40 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                         "release": "1.0"
                     }
                 ],
-                "title":"GitLab SAST Scan report through enrichment for visualization",
+                "title": "GitLab SAST Scan report through enrichment for visualization",
                 "version": "1.1.1"
             }
         ],
         "statistics": {
-                    "duration": run_time
-                },
+            "duration": run_time
+        },
         "version": "1.1",
         "passthrough": {
             "auxiliary_data": [
-	    	    {
-			        "name": "block 0",
-			        "data":{
-			        }
-		        },
+                {
+                    "name": "block 0",
+                    "data": {}
+                },
                 {
                     "name": "GitLab SAST Data",
                     "data": {
-				        "compliance_issues":[
-				        ]
-			        }
+                        "compliance_issues": []
+                    }
                 }
             ]
         }
     }
     
-    # Count vulns by sev for thresholds
-    vuln_counts = lib.Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
+    vuln_counts = Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
     compliance_issues = check_failure_thresholds(vuln_counts, thresholds)
     
-    # Update profile and passthrough data
     profile = hdf_output["profiles"][0]
     if compliance_issues:
         profile["status"] = "failed"
-        profile["passthrough"]["auxiliary_data"][1]["data"]["compliance_issues"] = compliance_issues
-    else:
-        profile["status"] = "loaded"
+        hdf_output["passthrough"]["auxiliary_data"][1]["data"]["compliance_issues"] = compliance_issues
 
     controls = []
-    print(f"🧭  Started mapping CWE's to Controls")
+    print(f"🧭 Started mapping CWE's to Controls")
     for vuln in sast_report.get("vulnerabilities", []):
         severity_info = map_severity_and_impact(vuln.get("severity", "Unknown"), thresholds)
         cwes = vuln.get("cwe", []) or [ident['value'] for ident in vuln.get("identifiers", []) if ident.get('type') == 'cwe']
@@ -181,51 +221,37 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         related_controls = []
         cwe_entry = None
 
-        # Get NIST and GRC controls for each CWE
         for cwe in cwes:
-            nist, grc, org_refs, nist_ref, rel_controls, entry = get_nist_and_grc_controls(cwe, cwe_data, catalog_data)
+            nist, grc, org, nist_ref, rel_controls, entry = get_nist_and_grc_controls(cwe, cwe_data, catalog_data)
             nist_controls.extend(nist)
             grc_controls.extend(grc)
-            org_refs.extend(org_ref)
+            org_refs.extend(org)
             nist_references.extend(nist_ref)
             related_controls.extend(rel_controls)
-            if entry and not cwe_entry:  # Use first matching CWE entry
+            if entry and not cwe_entry:
                 cwe_entry = entry
 
-        # Map identifiers, extract OWASP
         identifiers = vuln.get("identifiers", [])
         mapped_identifiers = [
-            {
-                "url": ident.get("url", "")
-            } for ident in identifiers if ident.get("url", "") != ""
+            {"url": ident.get("url", "")} for ident in identifiers if ident.get("url", "") != ""
         ]
         owasp_ids = [ident['value'] for ident in identifiers if ident.get('type') == 'owasp']
 
-        # Build code and descriptions from cwe_entry or fallback to vuln data
         rule_name = cwe_entry.get('rule_name', vuln.get('name', '')) if cwe_entry else vuln.get('name', '')
         description = cwe_entry.get('description', vuln.get('description', '')) if cwe_entry else vuln.get('description', '')
         extended_description = cwe_entry.get('extended_description', '') if cwe_entry else ''
-        applicable_platforms = lib.json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
-        potential_mitigations = lib.json.dumps(cwe_entry.get('potential_mitigations', []),indent=2) if cwe_entry else vuln.get('solution', '')
+        applicable_platforms = json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
+        potential_mitigations = json.dumps(cwe_entry.get('potential_mitigations', []), indent=2) if cwe_entry else vuln.get('solution', '')
 
         control = {
             "code": f"{rule_name} {description} {applicable_platforms}",
             "desc": description,
             "descriptions": [
-                {
-                    "data": rule_name,
-                    "label": "default"
-                },
-                {
-                    "data": extended_description,
-                    "label": "check"
-                },
-                {
-                    "data": potential_mitigations,
-                    "label": "fix"
-                }
+                {"data": rule_name, "label": "default"},
+                {"data": extended_description, "label": "check"},
+                {"data": potential_mitigations, "label": "fix"}
             ],
-            "id": "CWE-" + cwes[0] if cwes else vuln.get('id', ''),  
+            "id": "CWE-" + cwes[0] if cwes else vuln.get('id', ''),
             "impact": severity_info['impact'],
             "refs": mapped_identifiers,
             "results": [
@@ -233,7 +259,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                     "code_desc": description,
                     "message": f"Vulnerability Found in source code: {vuln.get('description', '')}",
                     "run_time": run_time,
-                    "start_time": sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat()+"Z"),
+                    "start_time": sast_report['scan'].get("start_time", datetime.datetime.utcnow().isoformat() + "Z"),
                     "status": severity_info['status']
                 }
             ],
@@ -247,11 +273,11 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                 "grc": sorted(list(set(grc_controls))),
                 "cwe": "CWE-" + cwes[0] if cwes else '',
                 "owasp": owasp_ids,
-                "cci": [], 
+                "cci": [],
                 "category": vuln.get('category', ''),
-		"org_refs": sorted(list(set(org_refs))),
-		"nist_references": sorted(list(set(nist_references))),
-		"related_controls": sorted(list(set(related_controls)))
+                "org_ref": sorted(list(set(org_refs))),  # Fixed key name
+                "nist_references": sorted(list(set(nist_references))),
+                "related_controls": sorted(list(set(related_controls)))
             },
             "title": rule_name,
             "waiver_data": {}
@@ -259,35 +285,40 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         controls.append(control)
 
     hdf_output["profiles"][0]["controls"] = controls
-    hdf_output["statistics"]["duration"] = run_time * len(controls)  # Scale duration
+    hdf_output["statistics"]["duration"] = run_time * len(controls)
     return hdf_output
 
 # Save HDF output to a file
 def save_hdf_output(hdf_data, output_path):
-    print(f"🗄️  Saving HDF Data to: {output_path}")
+    print(f"🗄️ Saving HDF Data to: {output_path}")
     with open(output_path, 'w') as f:
-        lib.json.dump(hdf_data, f, indent=2)
+        json.dump(hdf_data, f, indent=2)
 
 # Main function
 def main(sast_file, cwe_file, catalog_file, thresholds_file, output_file):
     try:
         sast_report = load_json_file(sast_file)
-        print(f"📁  Loaded {sast_file} for gl-sast-report")
+        print(f"📁 Loaded {sast_file} for gl-sast-report")
         cwe_data = load_json_file(cwe_file)['cwe_data']
-        print(f"📁  Loaded {cwe_file} for CWE Data")
+        print(f"📁 Loaded {cwe_file} for CWE Data")
         catalog_data = load_json_file(catalog_file)
-        print(f"📂  Loaded {catalog_file} for SAFR data")
+        print(f"📂 Loaded {catalog_file} for SAFR data")
         thresholds = load_yaml_file(thresholds_file)
         hdf_data = convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds)
         save_hdf_output(hdf_data, output_file)
         print(f"Conversion complete. HDF file saved to {output_file}")
     except Exception as e:
         print(f"Error during conversion: {str(e)}")
+        raise
 
 if __name__ == "__main__":
-    sast_file = var.INPUT_FOLDER + "gl-sast-report.json"  # Replace with your GitLab SAST report
-    cwe_file = var.INPUT_FOLDER + "sast_cwe.json"         # Provided CWE data
-    catalog_file = var.INPUT_FOLDER + "catalog.json"      # Provided NIST catalog
-    thresholds_file = var.THRESHOLDS
-    output_file = var.OUTPUT_FOLDER + "output_hdf.json"    # Desired output file
-    main(sast_file, cwe_file, catalog_file, output_file)
+    # Assuming var.INPUT_FOLDER and var.OUTPUT_FOLDER are defined in locals.py
+    INPUT_FOLDER = "./"
+    OUTPUT_FOLDER = "./"
+    THRESHOLDS = "thresholds.yaml"
+    sast_file = INPUT_FOLDER + "gl-sast-report.json"
+    cwe_file = INPUT_FOLDER + "sast_cwe.json"
+    catalog_file = INPUT_FOLDER + "catalog.json"
+    thresholds_file = THRESHOLDS
+    output_file = OUTPUT_FOLDER + "output_hdf.json"
+    main(sast_file, cwe_file, catalog_file, thresholds_file, output_file)
