@@ -19,6 +19,6 @@ terraform.tfvars
 *.DS_Store
 
 # Local testing files
-*locals.py
+locals.py
 *output_files/
 *__pycache__
