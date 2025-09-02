@@ -1,0 +1,19 @@
+compliance:
+  min: 90
+failed:
+  critical:
+    max: 0
+  high:
+    max: 1
+  medium:
+    max: 10
+  low:
+    max: 25
+  unknown:
+    max: 15
+passed:
+  info: 'true'
+  low: 'true'
+  medium: 'true'
+  high: 'false'
+  critical: 'false'

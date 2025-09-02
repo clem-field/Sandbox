@@ -60,8 +60,8 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
 # Convert GitLab SAST report to HDF per the schema
 def convert_to_hdf(sast_report, cwe_data, catalog_data):
     duration = lib.datetime.strptime(sast_file["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - lib.datetime.strptime(sast_file["scan"].get("start_time", "%Y-%m-%dT%H:%M:%S"))
-    runt_time = round((duration.total_seconds() / 86400), 6)
-    print(f"⏱️  Duration calculated as {runt_time}")
+    run_time = round((duration.total_seconds() / 86400), 6)
+    print(f"⏱️  Duration calculated as {run_time}")
     hdf_output = {
         "platform": {
             "name": "GitLab",
@@ -91,7 +91,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data):
             }
         ],
         "statistics": {
-                    "duration": runt_time
+                    "duration": run_time
                 },
         "version": "1.1",
         "passthrough": {
@@ -162,7 +162,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data):
                     "code_desc": description,
                     "message": f"Vulnerability Found in source code: {vuln.get('description', '')}",
                     "run_time": runt_time,
-                    "start_time": sast_report['scan'].get("start_time", datetime.utcnow().isoformat()+"Z"),
+                    "start_time": sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat()+"Z"),
                     "status": severity_info['status']
                 }
             ],
@@ -185,7 +185,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data):
         controls.append(control)
 
     hdf_output["profiles"][0]["controls"] = controls
-    hdf_output["statistics"]["duration"] = runt_time * len(controls)  # Scale duration
+    hdf_output["statistics"]["duration"] = run_time * len(controls)  # Scale duration
     return hdf_output
 
 # Save HDF output to a file
