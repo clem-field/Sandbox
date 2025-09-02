@@ -17,3 +17,8 @@ terraform.tfvars
 
 # Mac Tracking
 *.DS_Store
+
+# Local testing files
+*locals.py
+*output_files/
+*__pycache__
