@@ -349,7 +349,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         
         # HDF control for compatibility
         control = {
-            "code": f"{rule_name} {description} {applicable_platforms}",
+            "code": ruby_content,
             "desc": description,
             "descriptions": [
                 {"data": rule_name, "label": "default"},
