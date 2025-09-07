@@ -1,0 +1,482 @@
+{
+    "version": "15.1.4",
+    "vulnerabilities": [
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Improper neutralization of directives in dynamically evaluated code ('Eval Injection')",
+            "description": "The application was found calling the `eval` function OR Function()\n  constructor OR setTimeout() OR setInterval() methods. If the\n\n  variables or strings or functions passed to these methods contains user-supplied input, an adversary could attempt to execute arbitrary\n\n  JavaScript\n\n  code. This could lead to a full system compromise in Node applications or Cross-site Scripting\n\n  (XSS) in web applications.\n\n\n  To remediate this issue, remove all calls to above methods and consider alternative methods for\n\n  executing\n\n  the necessary business logic. There is almost no safe method of calling `eval` or other above stated sinks with\n\n  user-supplied input.\n\n  Instead, consider alternative methods such as using property accessors to dynamically access\n\n  values.\n\n\n  Example using property accessors to dynamically access an object's property:\n\n  ```\n\n  // Define an object\n\n  const obj = {key1: 'value1', key2: 'value2'};\n\n  // Get key dynamically from user input\n\n  const key = getUserInput();\n\n  // Check if the key exists in our object and return it, or a default empty string\n\n  const value = (obj.hasOwnProperty(key)) ? obj[key] : '';\n\n  // Work with the value\n\n  ```\n\n\n  For more information on why not to use `eval`, and alternatives see:\n\n  - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#never_use_eval!\n\n  Other References:\n\n  - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function\n\n  - https://developer.mozilla.org/en-US/docs/Web/API/setTimeout\n\n  - https://developer.mozilla.org/en-US/docs/Web/API/setInterval\n",
+            "cve": "semgrep_id:eslint.detect-eval-with-expression:10:10",
+            "severity": "High",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/main.js",
+                "start_line": 10
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "eslint.detect-eval-with-expression",
+                    "value": "eslint.detect-eval-with-expression",
+                    "url": "https://semgrep.dev/r/gitlab.eslint.detect-eval-with-expression"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-95",
+                    "value": "95",
+                    "url": "https://cwe.mitre.org/data/definitions/95.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A03:2021 - Injection",
+                    "value": "A03:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A1:2017 - Injection",
+                    "value": "A1:2017"
+                },
+                {
+                    "type": "eslint_rule_id",
+                    "name": "ESLint rule ID/detect-eval-with-expression",
+                    "value": "detect-eval-with-expression"
+                }
+            ],
+            "tracking": {
+                "type": "source",
+                "items": [
+                    {
+                        "file": "src/js/main.js",
+                        "line_start": 10,
+                        "line_end": 10,
+                        "signatures": [
+                            {
+                                "algorithm": "scope_offset",
+                                "value": "src/js/main.js|dangerous_eval[0]:1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Improper neutralization of directives in dynamically evaluated code ('Eval Injection')",
+            "description": "The application was found calling the `eval` function OR Function()\n  constructor OR setTimeout() OR setInterval() methods. If the\n\n  variables or strings or functions passed to these methods contains user-supplied input, an adversary could attempt to execute arbitrary\n\n  JavaScript\n\n  code. This could lead to a full system compromise in Node applications or Cross-site Scripting\n\n  (XSS) in web applications.\n\n\n  To remediate this issue, remove all calls to above methods and consider alternative methods for\n\n  executing\n\n  the necessary business logic. There is almost no safe method of calling `eval` or other above stated sinks with\n\n  user-supplied input.\n\n  Instead, consider alternative methods such as using property accessors to dynamically access\n\n  values.\n\n\n  Example using property accessors to dynamically access an object's property:\n\n  ```\n\n  // Define an object\n\n  const obj = {key1: 'value1', key2: 'value2'};\n\n  // Get key dynamically from user input\n\n  const key = getUserInput();\n\n  // Check if the key exists in our object and return it, or a default empty string\n\n  const value = (obj.hasOwnProperty(key)) ? obj[key] : '';\n\n  // Work with the value\n\n  ```\n\n\n  For more information on why not to use `eval`, and alternatives see:\n\n  - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#never_use_eval!\n\n  Other References:\n\n  - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function\n\n  - https://developer.mozilla.org/en-US/docs/Web/API/setTimeout\n\n  - https://developer.mozilla.org/en-US/docs/Web/API/setInterval\n",
+            "cve": "semgrep_id:eslint.detect-eval-with-expression:22:22",
+            "severity": "High",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/main.js",
+                "start_line": 22
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "eslint.detect-eval-with-expression",
+                    "value": "eslint.detect-eval-with-expression",
+                    "url": "https://semgrep.dev/r/gitlab.eslint.detect-eval-with-expression"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-95",
+                    "value": "95",
+                    "url": "https://cwe.mitre.org/data/definitions/95.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A03:2021 - Injection",
+                    "value": "A03:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A1:2017 - Injection",
+                    "value": "A1:2017"
+                },
+                {
+                    "type": "eslint_rule_id",
+                    "name": "ESLint rule ID/detect-eval-with-expression",
+                    "value": "detect-eval-with-expression"
+                }
+            ],
+            "tracking": {
+                "type": "source",
+                "items": [
+                    {
+                        "file": "src/js/main.js",
+                        "line_start": 22,
+                        "line_end": 22,
+                        "signatures": [
+                            {
+                                "algorithm": "scope_offset",
+                                "value": "src/js/main.js|dangerous_eval_var[0]:1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Regular expression with non-literal value",
+            "description": "The `RegExp` constructor was called with a non-literal value. If an adversary were able to\nsupply a malicious regex, they could cause a Regular Expression Denial of Service (ReDoS)\nagainst the application. In Node applications, this could cause the entire application to no\nlonger be responsive to other users' requests.\n\nTo remediate this issue, never allow user-supplied regular expressions. Instead, the regular \nexpression should be  hardcoded. If this is not possible, consider using an alternative regular\nexpression engine such as [node-re2](https://www.npmjs.com/package/re2). RE2 is a safe alternative \nthat does not support backtracking, which is what leads to ReDoS.\n\nExample using re2 which does not support backtracking (Note: it is still recommended to\nnever use user-supplied input):\n```\n// Import the re2 module\nconst RE2 = require('re2');\n\nfunction match(userSuppliedRegex, userInput) {\n    // Create a RE2 object with the user supplied regex, this is relatively safe\n    // due to RE2 not supporting backtracking which can be abused to cause long running\n    // queries\n    var re = new RE2(userSuppliedRegex);\n    // Execute the regular expression against some userInput\n    var result = re.exec(userInput);\n    // Work with the result\n}\n```\n\nFor more information on Regular Expression DoS see:\n- https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS\n",
+            "cve": "semgrep_id:eslint.detect-non-literal-regexp:16:16",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/main.js",
+                "start_line": 16
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "eslint.detect-non-literal-regexp",
+                    "value": "eslint.detect-non-literal-regexp",
+                    "url": "https://semgrep.dev/r/gitlab.eslint.detect-non-literal-regexp"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-185",
+                    "value": "185",
+                    "url": "https://cwe.mitre.org/data/definitions/185.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A03:2021 - Injection",
+                    "value": "A03:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A1:2017 - Injection",
+                    "value": "A1:2017"
+                },
+                {
+                    "type": "eslint_rule_id",
+                    "name": "ESLint rule ID/detect-non-literal-regexp",
+                    "value": "detect-non-literal-regexp"
+                }
+            ],
+            "tracking": {
+                "type": "source",
+                "items": [
+                    {
+                        "file": "src/js/main.js",
+                        "line_start": 16,
+                        "line_end": 16,
+                        "signatures": [
+                            {
+                                "algorithm": "scope_offset",
+                                "value": "src/js/main.js|dangerous_regexp[0]:1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Use of a broken or risky cryptographic algorithm",
+            "description": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data.\n",
+            "cve": "semgrep_id:nodejs_scan.javascript-crypto-rule-node_aes_ecb:24:24",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/nodejs_crypto.js",
+                "start_line": 24
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "nodejs_scan.javascript-crypto-rule-node_aes_ecb",
+                    "value": "nodejs_scan.javascript-crypto-rule-node_aes_ecb"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-327",
+                    "value": "327",
+                    "url": "https://cwe.mitre.org/data/definitions/327.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A02:2021 - Cryptographic Failures",
+                    "value": "A02:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A3:2017 - Sensitive Data Exposure",
+                    "value": "A3:2017"
+                },
+                {
+                    "type": "njsscan_rule_type",
+                    "name": "NodeJS Scan ID javascript-crypto-rule-node_aes_ecb",
+                    "value": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data."
+                }
+            ],
+            "tracking": {
+                "type": "source",
+                "items": [
+                    {
+                        "file": "src/js/nodejs_crypto.js",
+                        "line_start": 24,
+                        "line_end": 24,
+                        "signatures": [
+                            {
+                                "algorithm": "scope_offset",
+                                "value": "src/js/nodejs_crypto.js|encrypt[0]:2"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Use of a broken or risky cryptographic algorithm",
+            "description": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data.\n",
+            "cve": "semgrep_id:nodejs_scan.javascript-crypto-rule-node_aes_ecb:36:36",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/nodejs_crypto.js",
+                "start_line": 36
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "nodejs_scan.javascript-crypto-rule-node_aes_ecb",
+                    "value": "nodejs_scan.javascript-crypto-rule-node_aes_ecb"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-327",
+                    "value": "327",
+                    "url": "https://cwe.mitre.org/data/definitions/327.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A02:2021 - Cryptographic Failures",
+                    "value": "A02:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A3:2017 - Sensitive Data Exposure",
+                    "value": "A3:2017"
+                },
+                {
+                    "type": "njsscan_rule_type",
+                    "name": "NodeJS Scan ID javascript-crypto-rule-node_aes_ecb",
+                    "value": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data."
+                }
+            ],
+            "tracking": {
+                "type": "source",
+                "items": [
+                    {
+                        "file": "src/js/nodejs_crypto.js",
+                        "line_start": 36,
+                        "line_end": 36,
+                        "signatures": [
+                            {
+                                "algorithm": "scope_offset",
+                                "value": "src/js/nodejs_crypto.js|decrypt[0]:4"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Use of a broken or risky cryptographic algorithm",
+            "description": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data.\n",
+            "cve": "semgrep_id:nodejs_scan.javascript-crypto-rule-node_aes_ecb:4:4",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/nodejs_crypto.js",
+                "start_line": 4
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "nodejs_scan.javascript-crypto-rule-node_aes_ecb",
+                    "value": "nodejs_scan.javascript-crypto-rule-node_aes_ecb"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-327",
+                    "value": "327",
+                    "url": "https://cwe.mitre.org/data/definitions/327.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A02:2021 - Cryptographic Failures",
+                    "value": "A02:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A3:2017 - Sensitive Data Exposure",
+                    "value": "A3:2017"
+                },
+                {
+                    "type": "njsscan_rule_type",
+                    "name": "NodeJS Scan ID javascript-crypto-rule-node_aes_ecb",
+                    "value": "AES with ECB mode is deterministic in nature and not suitable for encrypting large amount of repetitive data."
+                }
+            ]
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Use of weak hash",
+            "description": "The MD5 hashing algorithm is considered cryptographically weak and \nvulnerable to collision attacks, where two different inputs generate \nthe same output hash. When used for hashing sensitive data, attackers \ncan exploit this weakness to generate collisions, allowing them to bypass \nsecurity checks or masquerade malicious data as legitimate. This \nvulnerability is particularly critical in authentication mechanisms, \ndigital signatures, SSL/TLS certificates, and data integrity checks.\n\nRemediation:\nTo mitigate this vulnerability, replace the MD5 hashing algorithm with \nstronger cryptographic hash functions, such as SHA-256 or SHA-3. These \nalgorithms offer significantly improved security and are resistant to \ncollision attacks, making them suitable for cryptographic purposes in \nmodern applications.\n\nSecure Code example :\n```\nconst crypto = require('crypto');\nconst hash = crypto.createHash('sha256').update('sensitive data').digest('hex');\nconsole.log(hash); \n```\n",
+            "cve": "semgrep_id:nodejs_scan.javascript-crypto-rule-node_md5:17:19",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/nodejs_crypto.js",
+                "start_line": 17,
+                "end_line": 19
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "nodejs_scan.javascript-crypto-rule-node_md5",
+                    "value": "nodejs_scan.javascript-crypto-rule-node_md5"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-328",
+                    "value": "328",
+                    "url": "https://cwe.mitre.org/data/definitions/328.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A02:2021 - Cryptographic Failures",
+                    "value": "A02:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A3:2017 - Sensitive Data Exposure",
+                    "value": "A3:2017"
+                },
+                {
+                    "type": "njsscan_rule_type",
+                    "name": "NodeJS Scan ID javascript-crypto-rule-node_md5",
+                    "value": "MD5 is a a weak hash which is known to have collision. Use a strong hashing function."
+                }
+            ]
+        },
+        {
+            "id": ":SKIP:",
+            "category": "sast",
+            "name": "Use of weak hash",
+            "description": "The SHA-1 hashing algorithm is no longer considered secure for\ncryptographic applications due to its vulnerability to collision attacks,\nwhere two different inputs produce the same output hash. SHA-1's\nsusceptibility to collision attacks undermines the security of\ncryptographic operations, allowing attackers to forge signatures or\nmanipulate data without detection. This poses significant risks in\nauthentication systems, data integrity validations, and secure\ncommunications. \n\nRemediation: To mitigate this vulnerability, replace the SHA1 hashing \nalgorithm with  stronger cryptographic hash functions, such as SHA-256 \nor SHA-3. These  algorithms offer significantly improved security and \nare resistant to  collision attacks, making them suitable for cryptographic \npurposes in  modern applications.\n\nSecure Code example:  \n```  \nconst crypto = require('crypto');  \nconst hash = crypto.createHash('sha256').update('sensitive data').digest('hex');  \nconsole.log(hash);   \n```\n",
+            "cve": "semgrep_id:nodejs_scan.javascript-crypto-rule-node_sha1:11:13",
+            "severity": "Medium",
+            "scanner": {
+                "id": "semgrep",
+                "name": "Semgrep"
+            },
+            "location": {
+                "file": "src/js/nodejs_crypto.js",
+                "start_line": 11,
+                "end_line": 13
+            },
+            "identifiers": [
+                {
+                    "type": "semgrep_id",
+                    "name": "nodejs_scan.javascript-crypto-rule-node_sha1",
+                    "value": "nodejs_scan.javascript-crypto-rule-node_sha1"
+                },
+                {
+                    "type": "cwe",
+                    "name": "CWE-328",
+                    "value": "328",
+                    "url": "https://cwe.mitre.org/data/definitions/328.html"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A02:2021 - Cryptographic Failures",
+                    "value": "A02:2021"
+                },
+                {
+                    "type": "owasp",
+                    "name": "A3:2017 - Sensitive Data Exposure",
+                    "value": "A3:2017"
+                },
+                {
+                    "type": "njsscan_rule_type",
+                    "name": "NodeJS Scan ID javascript-crypto-rule-node_sha1",
+                    "value": "SHA1 is a a weak hash which is known to have collision. Use a strong hashing function."
+                }
+            ]
+        }
+    ],
+    "scan": {
+        "analyzer": {
+            "id": "semgrep",
+            "name": "Semgrep",
+            "url": "https://gitlab.com/gitlab-org/security-products/analyzers/semgrep",
+            "vendor": {
+                "name": "GitLab"
+            },
+            "version": "5.30.0"
+        },
+        "scanner": {
+            "id": "semgrep",
+            "name": "Semgrep",
+            "url": "https://github.com/returntocorp/semgrep",
+            "vendor": {
+                "name": "GitLab"
+            },
+            "version": "1.107.0"
+        },
+        "start_time": "2025-04-01T14:15:07",
+        "end_time": "2025-04-01T14:15:19",
+        "status": "success",
+        "observability": {
+            "events": [
+                {
+                    "event": "collect_sast_scan_metrics_from_pipeline",
+                    "property": ":SKIP:",
+                    "label": "semgrep",
+                    "value": 0,
+                    "version": ":SKIP:",
+                    "exit_code": 0,
+                    "override_count": 0,
+                    "passthrough_count": 0,
+                    "custom_exclude_path_count": 0,
+                    "time_s": ":SKIP:",
+                    "file_count": 2
+                }
+            ]
+        }
+    }
+}
