@@ -1,0 +1,3 @@
+{
+    "code": "control \"{cwe_id}\" do\n  title \"{description}\n\n location: {aggregated_location}\"\n  desc \"rational\"\n. desc 'check' {applicable_platforms}\n  desc 'fix', \"{potential_mitigations}\"\n\n  impact {impact}\n  tag 'severity': {severity}\n  tag 'nist': {sorted(list(set(nist_controls)))}\n tag 'grc': {sorted(list(set(grc_controls)))}\n  tag 'cwe': {'CWE-' + cwes[0] if cwes else ''}\n  tag 'owasp': {owasp_ids}\n  tag 'cci': []\n. tag 'category': {vuln.get('category', '')}\n  tag 'org_ref': {sorted(list(set(org_refs)))}\n  tag 'nist_references': {sorted(list(set(nist_references)))}\n  tag 'related_controls': {sorted(list(set(related_controls)))}"
+}
