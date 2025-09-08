@@ -1,7 +1,6 @@
-import json
-import hashlib
-import datetime
-from collections import Counter, defaultdict
+import libraries as lib
+import locals as var
+
 try:
     import yaml
 except ImportError:
@@ -14,10 +13,10 @@ def print_error(msg):
 # Load JSON files
 def load_json_file(file_path, content=None):
     if content:
-        return json.loads(content)
+        return lib.json.loads(content)
     try:
         with open(file_path, 'r') as f:
-            return json.load(f)
+            return lib.json.load(f)
     except Exception as e:
         print_error(f"Error loading JSON file {file_path}: {str(e)}")
         raise
@@ -25,8 +24,8 @@ def load_json_file(file_path, content=None):
 def generate_sha(data):
     """Generate SHA256 hash for profile data"""
     print(f"📝 Signing gl-sast-report")
-    serialized_data = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(serialized_data.encode()).hexdigest()
+    serialized_data = lib.json.dumps(data, sort_keys=True)
+    return lib.hashlib.sha256(serialized_data.encode()).hexdigest()
 
 def load_yaml_file(file_path, content=None):
     if not yaml:
@@ -50,10 +49,10 @@ def load_yaml_file(file_path, content=None):
         }
     try:
         if content:
-            return yaml.safe_load(content) or {'passed': {}, 'failed': {}}
+            return lib.yaml.safe_load(content) or {'passed': {}, 'failed': {}}
         with open(file_path, 'r') as f:
             print(f"📂 Loaded {file_path} for risk tolerance")
-            return yaml.safe_load(f) or {'passed': {}, 'failed': {}}
+            return lib.yaml.safe_load(f) or {'passed': {}, 'failed': {}}
     except Exception as e:
         print(f"❌ Error loading YAML file {file_path}: {str(e)}")
         return {
@@ -154,8 +153,8 @@ def check_failure_thresholds(vuln_counts, thresholds):
 # Convert GitLab SAST report to HDF per the schema
 def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
     try:
-        duration = datetime.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
-                   datetime.datetime.strptime(sast_report["scan"].get("start_time", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
+        duration = lib.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
+                   lib.datetime.strptime(sast_report["scan"].get("start_time", lib.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
         run_time = round(duration.total_seconds() / 86400, 6)
     except (KeyError, ValueError) as e:
         print(f"⚠️ Error calculating duration: {str(e)}. Using default run_time.")
@@ -210,7 +209,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         }
     }
     
-    vuln_counts = Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
+    vuln_counts = lib.Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
     compliance_issues = check_failure_thresholds(vuln_counts, thresholds)
     
     profile = hdf_output["profiles"][0]
@@ -222,7 +221,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
     print(f"🧭 Started mapping CWE's to Controls")
     
     # Collect unique CWEs and group vulns by primary CWE (first in list)
-    cwe_to_vulns = defaultdict(list)
+    cwe_to_vulns = lib.defaultdict(list)
     for vuln in sast_report.get("vulnerabilities", []):
         cwes = vuln.get("cwe", []) or [ident['value'] for ident in vuln.get("identifiers", []) if ident.get('type') == 'cwe']
         if cwes:
@@ -258,8 +257,8 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         rule_name = cwe_entry.get('rule_name', matching_vulns[0].get('name', '')) if cwe_entry else matching_vulns[0].get('name', '')
         description = cwe_entry.get('description', ', '.join(set(v.get('description', '') for v in matching_vulns))) if cwe_entry else ', '.join(set(v.get('description', '') for v in matching_vulns))
         extended_description = cwe_entry.get('extended_description', '') if cwe_entry else ''
-        applicable_platforms = json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
-        potential_mitigations = json.dumps(cwe_entry.get('potential_mitigations', []), indent=2) if cwe_entry else ', '.join(set(v.get('solution', '') for v in matching_vulns if v.get('solution', '')))
+        applicable_platforms = lib.json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
+        potential_mitigations = lib.json.dumps(cwe_entry.get('potential_mitigations', []), indent=2) if cwe_entry else ', '.join(set(v.get('solution', '') for v in matching_vulns if v.get('solution', '')))
         
         # Aggregated message
         message = f"Vulnerability Found in multiple locations: {aggregated_locations}"
@@ -280,7 +279,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                     "code_desc": description,
                     "message": message,
                     "run_time": run_time,
-                    "start_time": sast_report['scan'].get("start_time", datetime.datetime.utcnow().isoformat() + "Z"),
+                    "start_time": sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat() + "Z"),
                     "status": severity_info['status']
                 }
             ],
@@ -313,18 +312,18 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
 def save_hdf_output(hdf_data, output_path):
     print(f"🗄️ Saving HDF Data to: {output_path}")
     with open(output_path, 'w') as f:
-        json.dump(hdf_data, f, indent=2)
+        lib.json.dump(hdf_data, f, indent=2)
 
 # Main function
-def main(sast_file_content, cwe_file_content, catalog_file_content, thresholds_file_content, output_file):
+def main(sast_file, cwe_file, catalog_file, thresholds_file, output_file):
     try:
-        sast_report = load_json_file(None, sast_file_content)
+        sast_report = load_json_file(None, sast_file)
         print(f"📁 Loaded gl-sast-report.json for gl-sast-report")
-        cwe_data = load_json_file(None, cwe_file_content)['cwe_data']
+        cwe_data = load_json_file(None, cwe_file)['cwe_data']
         print(f"📁 Loaded sast_cwe.json for CWE Data")
-        catalog_data = load_json_file(None, catalog_file_content)
+        catalog_data = load_json_file(None, catalog_file)
         print(f"📂 Loaded catalog.json for SAFR data")
-        thresholds = load_yaml_file(None, thresholds_file_content)
+        thresholds = load_yaml_file(None, thresholds_file)
         hdf_data = convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds)
         save_hdf_output(hdf_data, output_file)
         print(f"Conversion complete. HDF file saved to {output_file}")
@@ -334,14 +333,9 @@ def main(sast_file_content, cwe_file_content, catalog_file_content, thresholds_f
 
 
 if __name__ == "__main__":
-    # Update with file locations as needed
-    INPUT_FOLDER = "./"
-    OUTPUT_FOLDER = "./"
-    THRESHOLDS = "thresholds.yaml"
-    sast_file = INPUT_FOLDER + "gl-sast-report.json"
-    cwe_file = INPUT_FOLDER + "sast_cwe.json"
-    catalog_file = INPUT_FOLDER + "catalog.json"
-    thresholds_file = THRESHOLDS
-    output_file = OUTPUT_FOLDER + "output_hdf.json"
+    sast_file = var.INPUT_FOLDER + "gl-sast-report.json"
+    cwe_file = var.INPUT_FOLDER + "sast_cwe.json"
+    catalog_file = var.INPUT_FOLDER + "catalog.json"
+    thresholds_file = var.THRESHOLDS
+    output_file = var.OUTPUT_FOLDER + "output_hdf.json"
     main(sast_file, cwe_file, catalog_file, thresholds_file, output_file)
-    output_file = "output_hdf.json"

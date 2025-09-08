@@ -1,35 +1,26 @@
-import json
-import hashlib
-import datetime
-from collections import Counter, defaultdict
-try:
-    import yaml
-except ImportError:
-    yaml = None
+import libraries as lib
+import locals as var
 
 # Set up logging (assuming no logging module, use print for errors)
 def print_error(msg):
     print(f"ERROR: {msg}")
 
 # Load JSON files
-def load_json_file(file_path, content=None):
-    if content:
-        return json.loads(content)
+def load_json_file(file_path):
     try:
         with open(file_path, 'r') as f:
-            return json.load(f)
+            return lib.json.load(f)
     except Exception as e:
         print_error(f"Error loading JSON file {file_path}: {str(e)}")
         raise
 
-def generate_sha(data):
+def generate_sha256(data: str) -> str:
     """Generate SHA256 hash for profile data"""
-    print(f"📝 Signing gl-sast-report")
-    serialized_data = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(serialized_data.encode()).hexdigest()
+    print(f"📝  Signing gl-sast-report")
+    return lib.hashlib.sha256(data.encode()).hexdigest()
 
-def load_yaml_file(file_path, content=None):
-    if not yaml:
+def load_yaml_file(file_path):
+    if not lib.yaml:
         print("❌ PyYAML module not found. Using default thresholds.")
         return {
             'passed': {
@@ -49,11 +40,9 @@ def load_yaml_file(file_path, content=None):
             }
         }
     try:
-        if content:
-            return yaml.safe_load(content) or {'passed': {}, 'failed': {}}
         with open(file_path, 'r') as f:
             print(f"📂 Loaded {file_path} for risk tolerance")
-            return yaml.safe_load(f) or {'passed': {}, 'failed': {}}
+            return lib.yaml.safe_load(f) or {'passed': {}, 'failed': {}}
     except Exception as e:
         print(f"❌ Error loading YAML file {file_path}: {str(e)}")
         return {
@@ -94,11 +83,11 @@ def map_severity_and_impact(sast_severity, thresholds):
 def normalize_nist_control(control_id):
     return control_id.replace('AC-', 'AC-0').replace('(A)', '(a)').replace('(B)', '(b)')
 
-# Get NIST and GRC controls for a CWE using sast_cwe.json and catalog.json
+# Get NIST and grc controls for a CWE using sast_cwe.json and catalog.json
 def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
     nist_controls = set()
     grc_controls = set()
-    org_refs = set()
+    org = set()
     nist_references = set()
     related_controls = set()
     cwe_id = cwe_id.replace('CWE-', '')
@@ -123,9 +112,9 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
                     for nist_ref in tag.get('nist_references', []):
                         if nist_ref != "None":
                             nist_references.add(nist_ref)
-                for org in catalog_entry.get('org_ref', []):
-                    if org != "None":
-                        org_refs.add(org)
+                for org_ref in catalog_entry.get('org', []):
+                    if org_ref != "None":
+                        org.add(org_ref)
                 for rel_control in catalog_entry.get('related_controls', []):
                     if rel_control != "None":
                         related_controls.add(rel_control)
@@ -133,7 +122,7 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
     return (
         sorted(list(nist_controls)),
         sorted(list(grc_controls)),
-        sorted(list(org_refs)),
+        sorted(list(org)),
         sorted(list(nist_references)),
         sorted(list(related_controls)),
         cwe_entry
@@ -156,12 +145,12 @@ def sanitize_for_ruby(text):
     if not isinstance(text, str):
         text = str(text)
     # Replace newlines with \n, escape backslashes and single quotes
-    text = text.replace('\\', '\\\\').replace('\n', '\\n').replace("'", "\\'")
+    text = text.replace('\\', '\\\\').replace('\n', '\\n').replace("'", "\\'").replace('"','\"').replace("[","").replace("]","").replace("{","").replace("}","")
     # Remove excessive whitespace and ensure single-line output where needed
     return ' '.join(text.split())
 
 # Generate Ruby control file content
-def generate_ruby_control(cwe_id, description, aggregated_locations, applicable_platforms, potential_mitigations, severity, nist_controls, grc_controls, owasp_ids, category, org_refs, nist_references, related_controls):
+def generate_ruby_control(cwe_id, description, aggregated_locations, applicable_platforms, potential_mitigations, severity, nist_controls, grc_controls, owasp_ids, category, org, nist_references, related_controls):
     # Sanitize inputs to prevent syntax errors in Ruby
     description_str = sanitize_for_ruby(description)
     applicable_platforms_str = sanitize_for_ruby(applicable_platforms).replace('[{', '[{').replace('}]', '}]')  # Preserve JSON-like structure
@@ -170,12 +159,12 @@ def generate_ruby_control(cwe_id, description, aggregated_locations, applicable_
     aggregated_locations_str = sanitize_for_ruby(aggregated_locations)
     
     # Format arrays for Ruby syntax
-    nist_str = json.dumps(nist_controls).replace('"', "'")
-    grc_str = json.dumps(grc_controls).replace('"', "'")
-    owasp_str = json.dumps(owasp_ids).replace('"', "'")
-    org_refs_str = json.dumps(org_refs).replace('"', "'")
-    nist_references_str = json.dumps(nist_references).replace('"', "'")
-    related_controls_str = json.dumps(related_controls).replace('"', "'")
+    nist_str = lib.json.dumps(nist_controls).replace('"', "'")
+    grc_str = lib.json.dumps(grc_controls).replace('"', "'")
+    owasp_str = lib.json.dumps(owasp_ids).replace('"', "'")
+    org = lib.json.dumps(org).replace('"', "'")
+    nist_references_str = lib.json.dumps(nist_references).replace('"', "'")
+    related_controls_str = lib.json.dumps(related_controls).replace('"', "'")
     
     # Ruby control template based on V-92965.rb
     ruby_content = f"""
@@ -183,20 +172,20 @@ control "CWE-{cwe_id}" do
   title "{description_str}"
 
   desc  "rationale", ""
-  desc  'check', "{applicable_platforms_str}"
-  desc  'fix', "{potential_mitigations_str}"
+  desc  'check', {applicable_platforms_str}
+  desc  'fix', {potential_mitigations_str}
 
   impact {severity['impact']}
-  tag 'severity': '{severity['severity']}'
-  tag 'nist': {nist_str}
-  tag 'grc': {grc_str}
-  tag 'cwe': 'CWE-{cwe_id}'
-  tag 'owasp': {owasp_str}
-  tag 'cci': []
-  tag 'category': '{category_str}'
-  tag 'org_ref': {org_refs_str}
-  tag 'nist_references': {nist_references_str}
-  tag 'related_controls': {related_controls_str}
+  tag severity: '{severity['severity']}'
+  tag nist: {nist_str}
+  tag grc: {grc_str}
+  tag cwe: 'CWE-{cwe_id}'
+  tag owasp: {owasp_str}
+  tag cci: []
+  tag category: '{category_str}'
+  tag org: {org}
+  tag nist_references: {nist_references_str}
+  tag related_controls: {related_controls_str}
 
   describe 'Vulnerability locations' do
     it 'should be reviewed at: {aggregated_locations_str}' do
@@ -208,7 +197,7 @@ end
     return ruby_content
 
 # Save Ruby control file
-def save_ruby_control(cwe_id, content, output_dir="ruby_controls"):
+def save_ruby_control(cwe_id, content, output_dir=var.OUTPUT_FOLDER):
     import os
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, f"CWE-{cwe_id}.rb")
@@ -219,8 +208,8 @@ def save_ruby_control(cwe_id, content, output_dir="ruby_controls"):
 # Convert GitLab SAST report to HDF and generate Ruby controls
 def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
     try:
-        duration = datetime.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
-                   datetime.datetime.strptime(sast_report["scan"].get("start_time", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
+        duration = lib.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
+                   lib.datetime.strptime(sast_report["scan"].get("start_time", lib.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
         run_time = round(duration.total_seconds() / 86400, 6)
     except (KeyError, ValueError) as e:
         print(f"⚠️ Error calculating duration: {str(e)}. Using default run_time.")
@@ -242,7 +231,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                 "license": "Apache-2.0",
                 "maintainer": "",
                 "name": "GitLab SAST Scanning Profile",
-                "sha256": generate_sha(sast_report),
+                "sha256": generate_sha256(sast_file),
                 "status": "loaded",
                 "summary": "GitLab enriched profile",
                 "supports": [
@@ -275,7 +264,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         }
     }
     
-    vuln_counts = Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
+    vuln_counts = lib.Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
     compliance_issues = check_failure_thresholds(vuln_counts, thresholds)
     
     profile = hdf_output["profiles"][0]
@@ -287,7 +276,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
     print(f"🧭 Started mapping CWE's to Controls")
     
     # Collect unique CWEs and group vulns by primary CWE (first in list)
-    cwe_to_vulns = defaultdict(list)
+    cwe_to_vulns = lib.defaultdict(list)
     for vuln in sast_report.get("vulnerabilities", []):
         cwes = vuln.get("cwe", []) or [ident['value'] for ident in vuln.get("identifiers", []) if ident.get('type') == 'cwe']
         if cwes:
@@ -301,7 +290,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         cwe_entry = next((entry for entry in cwe_data if entry['id'] == unique_cwe_id), None)
         
         # Get nist etc.
-        nist, grc, org, nist_ref, rel_controls, _ = get_nist_and_grc_controls(unique_cwe_id, cwe_data, catalog_data)
+        nist, grc, org_ref, nist_ref, rel_controls, _ = get_nist_and_grc_controls(unique_cwe_id, cwe_data, catalog_data)
         
         # Max severity from matching vulns
         severities = [v.get("severity", "Unknown") for v in matching_vulns]
@@ -323,8 +312,8 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
         rule_name = cwe_entry.get('rule_name', matching_vulns[0].get('name', '')) if cwe_entry else matching_vulns[0].get('name', '')
         description = cwe_entry.get('description', ', '.join(set(v.get('description', '') for v in matching_vulns))) if cwe_entry else ', '.join(set(v.get('description', '') for v in matching_vulns))
         extended_description = cwe_entry.get('extended_description', '') if cwe_entry else ''
-        applicable_platforms = json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
-        potential_mitigations = json.dumps(cwe_entry.get('potential_mitigations', []), indent=2) if cwe_entry else ', '.join(set(v.get('solution', '') for v in matching_vulns if v.get('solution', '')))
+        applicable_platforms = lib.json.dumps(cwe_entry.get('applicable_platforms', []), indent=2) if cwe_entry else ''
+        potential_mitigations = lib.json.dumps(cwe_entry.get('potential_mitigations', []), indent=2) if cwe_entry else ', '.join(set(v.get('solution', '') for v in matching_vulns if v.get('solution', '')))
         
         # Aggregated message
         message = f"Vulnerability Found in multiple locations: {aggregated_locations}"
@@ -341,7 +330,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
             grc,
             owasp_ids,
             ', '.join(sorted(set(v.get('category', '') for v in matching_vulns))),
-            org,
+            org_ref,
             nist_ref,
             rel_controls
         )
@@ -364,12 +353,12 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                     "code_desc": description,
                     "message": message,
                     "run_time": run_time,
-                    "start_time": sast_report['scan'].get("start_time", datetime.datetime.utcnow().isoformat() + "Z"),
+                    "start_time": sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat() + "Z"),
                     "status": severity_info['status']
                 }
             ],
             "source_location": {
-                "line": "aggregated",
+                "line": 0,
                 "ref": aggregated_locations
             },
             "tags": {
@@ -380,7 +369,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
                 "owasp": owasp_ids,
                 "cci": [],
                 "category": ', '.join(sorted(set(v.get('category', '') for v in matching_vulns))),
-                "org_ref": sorted(list(set(org))),
+                "org": sorted(list(set(org_ref))),
                 "nist_references": sorted(list(set(nist_ref))),
                 "related_controls": sorted(list(set(rel_controls)))
             },
@@ -397,18 +386,18 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds):
 def save_hdf_output(hdf_data, output_path):
     print(f"🗄️ Saving HDF Data to: {output_path}")
     with open(output_path, 'w') as f:
-        json.dump(hdf_data, f, indent=2)
+        lib.json.dump(hdf_data, f, indent=2)
 
 # Main function
-def main(sast_file_content, cwe_file_content, catalog_file_content, thresholds_file_content, output_file):
+def main(sast_file, cwe_file, catalog_file, thresholds_file, output_file):
     try:
-        sast_report = load_json_file(None, sast_file_content)
+        sast_report = load_json_file(sast_file)
         print(f"📁 Loaded gl-sast-report.json for gl-sast-report")
-        cwe_data = load_json_file(None, cwe_file_content)['cwe_data']
+        cwe_data = load_json_file(cwe_file)['cwe_data']
         print(f"📁 Loaded sast_cwe.json for CWE Data")
-        catalog_data = load_json_file(None, catalog_file_content)
-        print(f"📂 Loaded catalog.json for SAFR data")
-        thresholds = load_yaml_file(None, thresholds_file_content)
+        catalog_data = load_json_file(catalog_file)
+        print(f"📂 Loaded catalog.json for org data")
+        thresholds = load_yaml_file(thresholds_file)
         hdf_data = convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds)
         save_hdf_output(hdf_data, output_file)
         print(f"Conversion complete. HDF file saved to {output_file}")
@@ -417,14 +406,9 @@ def main(sast_file_content, cwe_file_content, catalog_file_content, thresholds_f
         raise
 
 if __name__ == "__main__":
-    # Update with file locations as needed
-    INPUT_FOLDER = "./"
-    OUTPUT_FOLDER = "./"
-    THRESHOLDS = "thresholds.yaml"
-    sast_file = INPUT_FOLDER + "gl-sast-report.json"
-    cwe_file = INPUT_FOLDER + "sast_cwe.json"
-    catalog_file = INPUT_FOLDER + "catalog.json"
-    thresholds_file = THRESHOLDS
-    output_file = OUTPUT_FOLDER + "output_hdf.json"
+    sast_file = var.INPUT_FOLDER + "gl-sast-report.json"  # Replace with dynamic gl-sast-report
+    cwe_file = var.INPUT_FOLDER + var.enhanced_cwe
+    catalog_file = var.INPUT_FOLDER + var.CATALOG_FILE
+    thresholds_file = var.THRESHOLDS      
+    output_file = var.OUTPUT_FOLDER + "safr_enhanced_gl-sast_hdf.json" 
     main(sast_file, cwe_file, catalog_file, thresholds_file, output_file)
-    output_file = "output_hdf.json"
