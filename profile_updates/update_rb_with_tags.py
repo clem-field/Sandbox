@@ -3,6 +3,14 @@ import json
 import re
 import uuid
 
+def normalize_nist(tag):
+    tag = tag.upper().replace(' ', '').replace('.', '').replace('(', '').replace(')', '')
+    # Remove leading zeros from all numeric sequences
+    def remove_leading_zeros(m):
+        return str(int(m.group(0)))
+    tag = re.sub(r'\d+', remove_leading_zeros, tag)
+    return tag
+
 def extract_nist_tags(rb_content):
     # Find the line with tag nist: ["value1", "value2", ...]
     match = re.search(r'tag nist:\s*\[([^\]]+)\]', rb_content)
@@ -15,24 +23,28 @@ def extract_nist_tags(rb_content):
     return tags
 
 def find_matching_tags(nist_tags, catalog):
-    # Collect tag data from catalog.json that matches any of the NIST tags
+    # Normalize the .rb NIST tags
+    norm_nist_tags = {normalize_nist(t) for t in nist_tags}
+    # Collect tag data from catalog.json that matches any of the normalized NIST tags
     matched_tags = []
     for entry in catalog:
         tags = entry.get('tags', [])
         if tags:
             tag_nist = tags[0].get('nist', [])
-            if any(nist_tag in tag_nist for nist_tag in nist_tags):
+            norm_tag_nist = {normalize_nist(t) for t in tag_nist}
+            if norm_nist_tags & norm_tag_nist:
                 matched_tags.append(tags[0])
     return matched_tags
 
 def format_tags_for_ruby(tags):
-    # Format tag data as Ruby-compatible tag declarations
+    # Format tag data as Ruby-compatible tag declarations, preserving exact values from catalog
     ruby_tags = []
     for tag_data in tags:
-        # Handle each tag field
+        # Handle each tag field exactly as it appears in catalog.json
         if 'grc' in tag_data:
             ruby_tags.append(f'tag grc: "{tag_data["grc"]}"')
         if 'baseline' in tag_data and tag_data['baseline']:
+            # Convert list to Ruby array syntax, preserving exact values
             ruby_tags.append(f'tag baseline: {json.dumps(tag_data["baseline"])}')
         if 'org_ref' in tag_data and tag_data['org_ref']:
             ruby_tags.append(f'tag org_ref: {json.dumps(tag_data["org_ref"])}')
