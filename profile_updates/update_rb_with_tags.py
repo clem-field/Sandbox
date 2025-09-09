@@ -35,21 +35,40 @@ def find_matching_tags(nist_tags, catalog):
     return matched_tags
 
 def format_tags_for_ruby(tags):
-    # Format tag data as Ruby-compatible tag declarations, preserving exact values from catalog
-    ruby_tags = []
+    # Aggregate tag data into single instances, preserving exact values from catalog
+    aggregated_grc = set()
+    aggregated_baseline = set()
+    aggregated_org_ref = set()
+    aggregated_nist_references = set()
+    aggregated_related_controls = set()
+
+    # Collect all values from matched tags
     for tag_data in tags:
-        # Handle each tag field exactly as it appears in catalog.json
         if 'grc' in tag_data:
-            ruby_tags.append(f'tag grc: "{tag_data["grc"]}"')
+            aggregated_grc.add(tag_data['grc'])
         if 'baseline' in tag_data and tag_data['baseline']:
-            # Convert list to Ruby array syntax, preserving exact values
-            ruby_tags.append(f'tag baseline: {lib.json.dumps(tag_data["baseline"])}')
+            aggregated_baseline.update(tag_data['baseline'])
         if 'org_ref' in tag_data and tag_data['org_ref']:
-            ruby_tags.append(f'tag org_ref: {lib.json.dumps(tag_data["org_ref"])}')
+            aggregated_org_ref.update(tag_data['org_ref'])
         if 'nist_references' in tag_data and tag_data['nist_references']:
-            ruby_tags.append(f'tag nist_references: {lib.json.dumps(tag_data["nist_references"])}')
+            aggregated_nist_references.update(tag_data['nist_references'])
         if 'related_controls' in tag_data and tag_data['related_controls']:
-            ruby_tags.append(f'tag related_controls: {lib.json.dumps(tag_data["related_controls"])}')
+            aggregated_related_controls.update(tag_data['related_controls'])
+
+    # Format as Ruby-compatible tag declarations
+    ruby_tags = []
+    if aggregated_grc:
+        # Format grc as a sorted list
+        ruby_tags.append(f'tag grc: {lib.json.dumps(sorted(aggregated_grc))}')
+    if aggregated_baseline:
+        ruby_tags.append(f'tag baseline: {lib.json.dumps(sorted(aggregated_baseline))}')
+    if aggregated_org_ref:
+        ruby_tags.append(f'tag org_ref: {lib.json.dumps(sorted(aggregated_org_ref))}')
+    if aggregated_nist_references:
+        ruby_tags.append(f'tag nist_references: {lib.json.dumps(sorted(aggregated_nist_references))}')
+    if aggregated_related_controls:
+        ruby_tags.append(f'tag related_controls: {lib.json.dumps(sorted(aggregated_related_controls))}')
+
     return ruby_tags
 
 def update_rb_file(file_path, catalog):
@@ -105,13 +124,7 @@ def main(directory_path, catalog_path):
             file_path = lib.os.path.join(directory_path, filename)
             update_rb_file(file_path, catalog)
 
-# Example usage:
-# Replace with actual paths
-# directory_path = 'path/to/rb/files/directory'
-# catalog_path = 'path/to/catalog.json'
-# update_rb_files_in_directory(directory_path, catalog_path)
-
 if __name__ == "__main__":
-    directory_path=var.RUBY_DIRECTORY
-    catalog_path=var.CATALOG_DIRECTORY
+    directory_path = var.RUBY_DIRECTORY
+    catalog_path = var.CATALOG_DIRECTORY
     main(directory_path, catalog_path)
