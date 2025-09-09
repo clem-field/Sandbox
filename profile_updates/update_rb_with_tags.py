@@ -12,8 +12,8 @@ def normalize_nist(tag):
     return tag
 
 def extract_nist_tags(rb_content):
-    # Find the line with tag nist: ["value1", "value2", ...]
-    match = re.search(r'tag nist:\s*\[([^\]]+)\]', rb_content)
+    # Find the line with tag nist: [...] or tag 'nist': [...]
+    match = re.search(r'tag\s+[\'"]?nist[\'"]?:\s*\[([^\]]+)\]', rb_content)
     if not match:
         return []
     # Extract the content inside the array
