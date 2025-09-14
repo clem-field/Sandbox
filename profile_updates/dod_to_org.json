@@ -1,0 +1,14 @@
+[
+    {
+        "inactivityLimit": {
+            "dod": "inactivity limit must be set to 15 minutes or less",
+            "org": "inactivity limit must be set to 10 minutes or less"
+        }
+    },
+    {
+        "inactivityValue": {
+            "dod": 15,
+            "org": 10
+        }
+    }
+]

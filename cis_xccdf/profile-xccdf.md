@@ -71,7 +71,7 @@ Here’s a step-by-step guide to the conversion and import process:
 		- Default Value
 		- References (e.g., NIST mappings) 21 26 30 
 	- SRG/STIG Spreadsheet Structure: Vulcan expects imports in a format similar to DISA SRG/STIG XLSX files, which have standardized columns for requirements, checks, and fixes. Common columns include:
-		- SRGID (e.g., SRG-OS-000001-GPOS-00001)
+		- SRG ID (e.g., SRG-OS-000001-GPOS-00001)
 		- Requirement/Title
 		- Severity (CAT I/High, CAT II/Medium, CAT III/Low)
 		- Discussion (guidance and rationale)
