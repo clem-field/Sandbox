@@ -1,9 +1,10 @@
 # Converting CIS Benchmarks to InSpec Profiles with SAF CLI
 
 ## Overview
-The [Security Automation Framework (SAF) CLI](https://saf-cli.mitre.org/), developed by MITRE, is a command-line tool that automates security tasks, 
-including converting Center for Internet Security (CIS) Benchmarks in XLSX format into InSpec profiles. InSpec is an open-source compliance testing 
-framework that defines security policies as code. SAF CLI generates an InSpec profile "stub" (basic structure with control stubs and metadata) from a 
+
+The [Security Automation Framework (SAF) CLI](https://saf-cli.mitre.org/), developed by MITRE, is a command-line tool that automates security tasks,
+including converting Center for Internet Security (CIS) Benchmarks in XLSX format into InSpec profiles. InSpec is an open-source compliance testing
+framework that defines security policies as code. SAF CLI generates an InSpec profile "stub" (basic structure with control stubs and metadata) from a
 CIS Benchmark, which requires manual refinement to implement full test logic.
 
 This guide explains how to use SAF CLI to convert a CIS Benchmark XLSX file into an InSpec profile for compliance automation.
@@ -16,15 +17,15 @@ This guide explains how to use SAF CLI to convert a CIS Benchmark XLSX file into
   npm install -g @mitre/saf
   ```
 
-	or
+or
 
-	```bash
-	docker pull mitre/saf
+  ```bash
+  docker pull mitre/saf
   ```
 
-- **CIS Benchmark File**: Download the CIS Benchmark in XLSX format from the [CIS website](https://www.cisecurity.org/) 
-	- (e.g., `CIS_Microsoft_Windows_Server_2022_Benchmark_v1.0.0.xlsx`). 
-	- Ensure it follows the standard CIS column structure.
+- **CIS Benchmark File**: Download the CIS Benchmark in XLSX format from the [CIS website](https://www.cisecurity.org/)
+  - (e.g., `CIS_Microsoft_Windows_Server_2022_Benchmark_v1.0.0.xlsx`).
+  - Ensure it follows the standard CIS column structure.
 - **InSpec (Optional)**: For testing the profile, install InSpec via RubyGems:
 
   ```bash
@@ -35,14 +36,14 @@ This guide explains how to use SAF CLI to convert a CIS Benchmark XLSX file into
 
 ### 1. Prepare the Input File
 
-Obtain the CIS Benchmark XLSX file. Ensure the file is not password-protected and matches the standard CIS format (e.g., columns like 
+Obtain the CIS Benchmark XLSX file. Ensure the file is not password-protected and matches the standard CIS format (e.g., columns like
 "Recommendation Number", "Title", "Description").
 
 ### 2. Build Mapping File
 
-The mapping file, in YAML, is used to define which columns from the CSV/XLSX file will be used for the required fields (see below) 
+The mapping file, in YAML, is used to define which columns from the CSV/XLSX file will be used for the required fields (see below)
 of the inspec profile control file. The mapping file should be created and updated to allow for a more robust mapping which improves
-the applicabitlity of spreadsheets (e.g. vendor checklists, benchmarks, other security documentation) to be converted into a
+the applicability of spreadsheets (e.g. vendor checklists, benchmarks, other security documentation) to be converted into a
 profile. This expands the use of profiles for comparison of technical checks and control coverage by a specific implementation.
 
 Mapping file example:
@@ -78,9 +79,8 @@ ref:                          # InSpec keyword - saf will check this column for 
 # source: https://saf-cli.mitre.org/#mapping-files
 ```
 
-Where the keys (title) are InSpec control attributes and the values (- Title) are the column headers in the 
+Where the keys (title) are InSpec control attributes and the values (- Title) are the column headers in the
 input spreadsheet that correspond to that attribute
-
 
 ### 3. Generate InSpec Metadata (Optional but Recommended)
 
@@ -112,17 +112,17 @@ input spreadsheet that correspond to that attribute
   saf generate spreadsheet2inspec_stub -i /path/to/cis-benchmark.xlsx -M /path/to/mapping/file -m path/to/metadata/file -o /path/to/output/profile
   ```
 
-| Required 	| option 	| alternate 					| 							Function																												|
-|-----------|---------|---------------------|------------------------------------------------------------------------------|
-|		Y				| 	-i		| --input							| Path to the CIS Benchmark XLSX file (required). 														|
-|		Y				| 	-o		| --output						| Output directory for the generated profile (defaults to `profile` folder).	|
-|		Y				|		-M		| --mapping						| Path to a custom YAML mapping file for non-standard XLSX formats.						|
-|		Y				|		-m		| --metadata					| Path to the JSON metadata file from Step 2.																		|
-|		N				|		-c		| --controlNamePrefix	| Prefix for control IDs (e.g., `cis-` for `cis-1-1`).													|
-|		N				|		-f		| --format						| Format type (`cis`, `disa`, `general`; use `cis` for CIS Benchmarks).				|
-|		N				|		-s		| --singleFile				| Output controls as a single Ruby file (default: separate files).						|
-| Global		|		-h		|											| help																																					|
-| Global		|		-L		|											| log level (e.g., `--logLevel=debug`).																					|
+| Required  | option  | alternate           |             Function                                                          |
+|-----------|---------|---------------------|-------------------------------------------------------------------------------|
+|   Y       |   -i    | --input             | Path to the CIS Benchmark XLSX file (required).                               |
+|   Y       |   -o    | --output            | Output directory for the generated profile (defaults to `profile` folder).    |
+|   Y       |   -M    | --mapping           | Path to a custom YAML mapping file for non-standard XLSX formats.             |
+|   Y       |   -m    | --metadata          | Path to the JSON metadata file from Step 2.                                   |
+|   N       |   -c    | --controlNamePrefix | Prefix for control IDs (e.g., `cis-` for `cis-1-1`).                          |
+|   N       |   -f    | --format            | Format type (`cis`, `disa`, `general`; use `cis` for CIS Benchmarks).         |
+|   N       |   -s    | --singleFile        | Output controls as a single Ruby file (default: separate files).              |
+| Global    |   -h    |                     | help                                                                          |
+| Global    |   -L    |                     | log level (e.g., `--logLevel=debug`).                                         |
 
 - Example for a CIS Windows Benchmark:
 
@@ -154,14 +154,17 @@ input spreadsheet that correspond to that attribute
      # TODO: Implement test logic here
    end
   ```
+
 - Manually add InSpec test logic using resources like `registry_key` for Windows checks. Refer to [InSpec documentation](https://docs.chef.io/inspec/).
 
 ### 6. Test the Profile
 
 - Run the profile against a target system:
+  
   ```bash
   inspec exec /path/to/output/profile --target local://
   ```
+
   - For remote targets: `--target ssh://user@host`.
 - Review the compliance report for passed/failed/skipped controls.
 
@@ -186,11 +189,8 @@ Use InspecTools' `pdf2inspec` for PDFs, as SAF CLI is optimized for XLSX.
 - For DISA STIGs, use CSV exports with `-f disa`.
 
 ## Resources
+
 - [SAF CLI Documentation](https://saf-cli.mitre.org/)
 - [InSpec Documentation](https://docs.chef.io/inspec/)
 - [CIS Benchmarks](https://www.cisecurity.org/)
 - [MITRE SAF GitHub](https://github.com/mitre/saf)
-
-
-
-
