@@ -14,13 +14,13 @@ def extract_info(intro_sheet):
             if "system owner of the author's area" in cell_str:
                 if i + 1 < len(rows) and rows[i + 1][0]:
                     system_owner = rows[i + 1][0]
-            elif "author assigned" in cell_str:
+            elif "assigned to this checklist" in cell_str:
                 if i + 1 < len(rows) and rows[i + 1][0]:
                     authors = str(rows[i + 1][0]).replace('\n', ', ')
             elif "source reference document" in cell_str:
                 if i + 1 < len(rows) and rows[i + 1][0]:
                     reference = rows[i + 1][0]
-            elif "additional technology subject matter experts" in cell_str:
+            elif "subject matter experts" in cell_str:
                 if i + 1 < len(rows) and rows[i + 1][0]:
                     smes = str(rows[i + 1][0]).replace('\n', ', ')
     return system_owner, authors, reference, smes
@@ -34,14 +34,24 @@ for filename in os.listdir(directory):
         try:
             wb = openpyxl.load_workbook(path, data_only=True)
             
-            # Copy Checklist sheet to new workbook
+            # Copy Checklist sheet to new workbook, removing second row if needed
             if 'Checklist' in wb.sheetnames:
                 clean_wb = openpyxl.Workbook()
                 clean_sheet = clean_wb.active
+                clean_sheet.title = 'Checklist'
                 source_sheet = wb['Checklist']
-                for row in source_sheet.iter_rows():
-                    for cell in row:
-                        clean_sheet[cell.coordinate] = cell.value
+                rows = list(source_sheet.iter_rows(values_only=True))
+                
+                # Check if second row's control ID contains the specified text
+                rows_to_copy = rows
+                if len(rows) >= 2 and rows[1][0] and "This number uniquely identifies each control" in str(rows[1][0]):
+                    rows_to_copy = rows[:1] + rows[2:]  # Skip second row
+                
+                # Copy rows to clean sheet
+                for row_idx, row in enumerate(rows_to_copy, start=1):
+                    for col_idx, value in enumerate(row, start=1):
+                        clean_sheet.cell(row=row_idx, column=col_idx).value = value
+                
                 clean_filename = filename.rsplit('.xlsx', 1)[0] + '_clean.xlsx'
                 clean_wb.save(os.path.join(directory, clean_filename))
             
