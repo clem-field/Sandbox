@@ -1,9 +1,14 @@
 import argparse
-import docx
+from docx import Document
 import pandas as pd
 
 def parse_docx_table(doc_path):
-    doc = docx.Document(doc_path)
+    try:
+        doc = Document(doc_path)
+    except Exception as e:
+        print(f"Error opening document {doc_path}: {e}")
+        return
+
     for table in doc.tables:
         # Get headers
         headers = [cell.text.strip() for cell in table.rows[0].cells if cell.text.strip()]
@@ -68,8 +73,11 @@ def parse_docx_table(doc_path):
             if data:
                 df = pd.DataFrame(data)
                 output_path = doc_path.replace('.docx', '_parsed.xlsx')
-                df.to_excel(output_path, index=False)
-                print(f"Spreadsheet saved to {output_path}")
+                try:
+                    df.to_excel(output_path, index=False)
+                    print(f"Spreadsheet saved to {output_path}")
+                except Exception as e:
+                    print(f"Error saving Excel file: {e}")
                 return
     print("No matching table found in the document.")
 
