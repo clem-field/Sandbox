@@ -1,3 +1,4 @@
+import argparse
 import docx
 import pandas as pd
 
@@ -72,5 +73,16 @@ def parse_docx_table(doc_path):
                 return
     print("No matching table found in the document.")
 
-# Example usage:
-# parse_docx_table("cis_docx_example.docx")
+def main():
+    parser = argparse.ArgumentParser(description="Parse a CIS DOCX file and convert specified table to Excel.")
+    parser.add_argument('-i', '--input', required=True, help="Path to the input DOCX file")
+    args = parser.parse_args()
+    
+    if not args.input.endswith('.docx'):
+        print("Error: Input file must be a .docx file")
+        return
+    
+    parse_docx_table(args.input)
+
+if __name__ == "__main__":
+    main()
