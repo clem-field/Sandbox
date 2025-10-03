@@ -1,27 +1,43 @@
 import argparse
 from docx import Document
 import pandas as pd
+import sys
+
+def normalize_text(text):
+    """Normalize text by converting to lowercase and removing extra whitespace."""
+    return ' '.join(str(text).lower().split()) if text else ''
 
 def parse_docx_table(doc_path):
     try:
+        print(f"Attempting to open document: {doc_path}")
         doc = Document(doc_path)
     except Exception as e:
         print(f"Error opening document {doc_path}: {e}")
         return
 
-    for table in doc.tables:
+    print(f"Found {len(doc.tables)} table(s) in the document")
+    expected_headers = ['Item #', 'Configuration Item', 'Action / Recommended Parameters', 'Rational/Remediation', 'Windows', 'Unix', 'Level & score']
+    norm_expected_headers = [normalize_text(h) for h in expected_headers]
+
+    for table_idx, table in enumerate(doc.tables):
         # Get headers
         headers = [cell.text.strip() for cell in table.rows[0].cells if cell.text.strip()]
-        expected_headers = ['Item #', 'Configuration Item', 'Action / Recommended Parameters', 'Rational/Remediation', 'Windows', 'Unix', 'Level & score']
-        if headers[:len(expected_headers)] == expected_headers:
-            # This is the target table
+        norm_headers = [normalize_text(h) for h in headers]
+        print(f"Table {table_idx} headers (raw): {headers}")
+        print(f"Table {table_idx} headers (normalized): {norm_headers}")
+
+        # Check if headers match (case-insensitive, ignoring extra whitespace)
+        if norm_headers[:len(norm_expected_headers)] == norm_expected_headers:
+            print(f"Table {table_idx} matches expected headers")
             data = []
-            for row in table.rows[1:]:
+            for row_idx, row in enumerate(table.rows[1:], start=1):
                 cells = row.cells
                 if len(cells) < 7:
+                    print(f"Skipping row {row_idx} in table {table_idx}: insufficient columns ({len(cells)})")
                     continue
                 item_num = cells[0].text.strip()
                 if not item_num:  # Skip empty rows
+                    print(f"Skipping row {row_idx} in table {table_idx}: empty Item #")
                     continue
                 config_item = cells[1].text.strip()
                 action = cells[2].text.strip()
@@ -40,7 +56,7 @@ def parse_docx_table(doc_path):
                     line = line.strip()
                     if not line:
                         continue
-                    lower_line = line.lower()
+                    lower_line = normalize_text(line)
                     if lower_line.startswith('rationale:') or lower_line.startswith('rational:'):
                         current = 'rationale'
                         rationale = line.split(':', 1)[1].strip() if ':' in line else ''
@@ -71,15 +87,19 @@ def parse_docx_table(doc_path):
                 })
             
             if data:
-                df = pd.DataFrame(data)
-                output_path = doc_path.replace('.docx', '_parsed.xlsx')
                 try:
-                    df.to_excel(output_path, index=False)
+                    df = pd.DataFrame(data)
+                    output_path = doc_path.replace('.docx', '_parsed.xlsx')
+                    df.to_excel(output_path, index=False, engine='openpyxl')
                     print(f"Spreadsheet saved to {output_path}")
                 except Exception as e:
                     print(f"Error saving Excel file: {e}")
                 return
-    print("No matching table found in the document.")
+            else:
+                print(f"No valid data found in table {table_idx}")
+        else:
+            print(f"Table {table_idx} does not match expected headers")
+    print("No matching table found in the document. Check header names and table structure.")
 
 def main():
     parser = argparse.ArgumentParser(description="Parse a CIS DOCX file and convert specified table to Excel.")
@@ -89,6 +109,14 @@ def main():
     if not args.input.endswith('.docx'):
         print("Error: Input file must be a .docx file")
         return
+    
+    try:
+        import docx
+        import pandas
+        print(f"Using python-docx version: {docx.__version__}")
+        print(f"Using pandas version: {pandas.__version__}")
+    except AttributeError as e:
+        print(f"Error accessing package versions: {e}")
     
     parse_docx_table(args.input)
 
