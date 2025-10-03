@@ -18,6 +18,8 @@ def parse_docx_table(doc_path):
     print(f"Found {len(doc.tables)} table(s) in the document")
     expected_headers = ['Item #', 'Configuration Item', 'Action / Recommended Parameters', 'Rational/Remediation', 'Windows', 'Unix', 'Level & score']
     norm_expected_headers = [normalize_text(h) for h in expected_headers]
+    all_data = []
+    matching_tables = 0
 
     for table_idx, table in enumerate(doc.tables):
         # Get headers
@@ -29,7 +31,8 @@ def parse_docx_table(doc_path):
         # Check if headers match (case-insensitive, ignoring extra whitespace)
         if norm_headers[:len(norm_expected_headers)] == norm_expected_headers:
             print(f"Table {table_idx} matches expected headers")
-            data = []
+            matching_tables += 1
+            table_data = []
             for row_idx, row in enumerate(table.rows[1:], start=1):
                 cells = row.cells
                 if len(cells) < 7:
@@ -74,7 +77,7 @@ def parse_docx_table(doc_path):
                         elif current == 'audit':
                             audit += ' ' + line
                 
-                data.append({
+                table_data.append({
                     'Item #': item_num,
                     'Configuration Item': config_item,
                     'Action / Recommended Parameters': action,
@@ -86,23 +89,24 @@ def parse_docx_table(doc_path):
                     'Level / Score': level_score
                 })
             
-            if data:
-                try:
-                    df = pd.DataFrame(data)
-                    output_path = doc_path.replace('.docx', '_parsed.xlsx')
-                    df.to_excel(output_path, index=False, engine='openpyxl')
-                    print(f"Spreadsheet saved to {output_path}")
-                except Exception as e:
-                    print(f"Error saving Excel file: {e}")
-                return
-            else:
-                print(f"No valid data found in table {table_idx}")
+            print(f"Table {table_idx} processed {len(table_data)} valid rows")
+            all_data.extend(table_data)
         else:
             print(f"Table {table_idx} does not match expected headers")
-    print("No matching table found in the document. Check header names and table structure.")
+
+    if all_data:
+        try:
+            df = pd.DataFrame(all_data)
+            output_path = doc_path.replace('.docx', '_parsed.xlsx')
+            df.to_excel(output_path, index=False, engine='openpyxl')
+            print(f"Spreadsheet saved to {output_path} with {len(all_data)} rows from {matching_tables} table(s)")
+        except Exception as e:
+            print(f"Error saving Excel file: {e}")
+    else:
+        print(f"No valid data found in {matching_tables} matching table(s). Check table contents and structure.")
 
 def main():
-    parser = argparse.ArgumentParser(description="Parse a CIS DOCX file and convert specified table to Excel.")
+    parser = argparse.ArgumentParser(description="Parse a CIS DOCX file and convert specified tables to Excel.")
     parser.add_argument('-i', '--input', required=True, help="Path to the input DOCX file")
     args = parser.parse_args()
     
