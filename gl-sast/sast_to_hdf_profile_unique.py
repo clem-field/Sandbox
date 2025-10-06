@@ -1,3 +1,4 @@
+
 import json
 import hashlib
 import datetime
@@ -515,5 +516,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert GitLab SAST report(s) to HDF format and generate Ruby controls.")
     parser.add_argument("-i", "--input", required=True, help="Path to a single gl-sast-report.json file or a directory containing multiple JSON files.")
     parser.add_argument("-o", "--output", required=True, help="Directory to save HDF JSON and Ruby control files.")
-    parser.add_argument("--thresholds", help="Path to thresholds YAML file (optional).", default=None)
+    parser.add_argument("-T", "--thresholds", help="Path to thresholds YAML file (optional).", default=None)
     args = parser.parse_args()
