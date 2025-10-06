@@ -1,4 +1,3 @@
-
 import json
 import hashlib
 import datetime
@@ -267,6 +266,33 @@ def save_ruby_control(cwe_id, content, output_dir="ruby_controls"):
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
+# Parse line range from aggregated_locations as low/high integer pair
+def get_line_range(aggregated_locations):
+    if not aggregated_locations:
+        return 0, 0
+    try:
+        line_numbers = []
+        locations = aggregated_locations.split(", ")
+        for loc in locations:
+            # Extract start_line and end_line from format "file: start_line/end_line"
+            line_part = loc.split(": ")[1] if ": " in loc else loc
+            start_line, end_line = line_part.split("/") if "/" in line_part else (line_part, line_part)
+            try:
+                start_line = int(start_line)
+                line_numbers.append(start_line)
+                if end_line:
+                    line_numbers.append(int(end_line))
+            except ValueError:
+                continue
+        if not line_numbers:
+            return 0, 0
+        low = min(line_numbers)
+        high = max(line_numbers)
+        return low, high
+    except Exception as e:
+        print(f"⚠️ Error parsing line numbers from {aggregated_locations}: {str(e)}. Using 0/0.")
+        return 0, 0
+
 # Convert GitLab SAST report to HDF and generate Ruby controls
 def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, input_file_name):
     try:
@@ -404,6 +430,10 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
         )
         save_ruby_control(unique_cwe_id, ruby_content, output_dir)
         
+        # Get line range for source_location
+        low, high = get_line_range(aggregated_locations)
+        line_range = f"{low}/{high}" if low != 0 or high != 0 else "0/0"
+        
         # HDF control
         control = {
             "code": f"{rule_name} {description} {applicable_platforms_str}",
@@ -426,7 +456,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
                 }
             ],
             "source_location": {
-                "line": "aggregated",
+                "line": line_range,
                 "ref": aggregated_locations
             },
             "tags": {
@@ -518,3 +548,6 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", required=True, help="Directory to save HDF JSON and Ruby control files.")
     parser.add_argument("-T", "--thresholds", help="Path to thresholds YAML file (optional).", default=None)
     args = parser.parse_args()
+
+    # Run main with command-line arguments
+    main(args.input, args.output, cwe_file, catalog_file, args.thresholds)
