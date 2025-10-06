@@ -1,13 +1,10 @@
-import libraries as lib
-import locals as var
-
+```python
 import json
 import hashlib
 import datetime
 from collections import Counter, defaultdict
 import os
 import argparse
-
 try:
     import yaml
 except ImportError:
@@ -34,7 +31,7 @@ def generate_sha(data):
     serialized_data = json.dumps(data, sort_keys=True)
     return hashlib.sha256(serialized_data.encode()).hexdigest()
 
-def load_yaml_file(file_path, content=None):
+def load_yaml_file(file_path=None, content=None):
     if not yaml:
         print("❌ PyYAML module not found. Using default thresholds.")
         return {
@@ -57,11 +54,30 @@ def load_yaml_file(file_path, content=None):
     try:
         if content:
             return yaml.safe_load(content) or {'passed': {}, 'failed': {}}
-        with open(file_path, 'r') as f:
-            print(f"📂 Loaded {file_path} for risk tolerance")
-            return yaml.safe_load(f) or {'passed': {}, 'failed': {}}
+        if file_path:
+            with open(file_path, 'r') as f:
+                print(f"📂 Loaded {file_path} for risk tolerance")
+                return yaml.safe_load(f) or {'passed': {}, 'failed': {}}
+        print("📂 No thresholds file provided, using default thresholds.")
+        return {
+            'passed': {
+                'info': True,
+                'low': True,
+                'medium': True,
+                'high': False,
+                'critical': False,
+                'unknown': True
+            },
+            'failed': {
+                'critical': {'max': 0},
+                'high': {'max': 1},
+                'medium': {'max': 10},
+                'low': {'max': 25},
+                'unknown': {'max': 15}
+            }
+        }
     except Exception as e:
-        print(f"❌ Error loading YAML file {file_path}: {str(e)}")
+        print(f"❌ Error loading YAML file {file_path or 'thresholds'}: {str(e)}. Using default thresholds.")
         return {
             'passed': {
                 'info': True,
@@ -441,14 +457,14 @@ def save_hdf_output(hdf_data, output_path):
         json.dump(hdf_data, f, indent=2)
 
 # Main function
-def main(input_path, output_dir, cwe_file_content, catalog_file_content, thresholds_file_content):
+def main(input_path, output_dir, cwe_file_content, catalog_file_content, thresholds_file=None):
     try:
         # Load static files
         cwe_data = load_json_file(None, cwe_file_content)['cwe_data']
         print(f"📁 Loaded sast_cwe.json for CWE Data")
         catalog_data = load_json_file(None, catalog_file_content)
         print(f"📂 Loaded catalog.json for SAFR data")
-        thresholds = load_yaml_file(None, thresholds_file_content)
+        thresholds = load_yaml_file(thresholds_file)
         
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
@@ -500,4 +516,181 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert GitLab SAST report(s) to HDF format and generate Ruby controls.")
     parser.add_argument("input_path", help="Path to a single gl-sast-report.json file or a directory containing multiple JSON files.")
     parser.add_argument("output_dir", help="Directory to save HDF JSON and Ruby control files.")
+    parser.add_argument("--thresholds", help="Path to thresholds YAML file (optional).", default=None)
     args = parser.parse_args()
+
+    # Static content for cwe and catalog
+    cwe_file_content = '''{
+        "cwe_data": [
+            {
+                "id": "95",
+                "rule_name": "Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')",
+                "description": "The product receives input from an upstream component, but it does not neutralize or incorrectly neutralizes code syntax before using the input in a dynamic evaluation call (e.g., 'eval').",
+                "extended_description": "This may allow an attacker to execute arbitrary code, or at least modify what code can be executed.",
+                "cwe_usage": "Unacceptable",
+                "applicable_platforms": [
+                    {
+                        "Type": "Language",
+                        "Class": "JavaScript",
+                        "Prevalence": "Common"
+                    }
+                ],
+                "common_consequences": [
+                    {
+                        "Scope": ["Access Control", "Confidentiality", "Integrity"],
+                        "Impact": ["Execute Unauthorized Code or Commands"]
+                    }
+                ],
+                "potential_mitigations": [
+                    {
+                        "Phase": ["Implementation"],
+                        "Description": "Avoid using eval() or similar functions. Use safer alternatives like property accessors or predefined functions.",
+                        "MitigationID": "MIT-1",
+                        "Effectiveness": "High"
+                    },
+                    {
+                        "Phase": ["Implementation"],
+                        "Description": "Sanitize and validate all inputs before dynamic evaluation.",
+                        "MitigationID": "MIT-2",
+                        "Effectiveness": "Moderate"
+                    }
+                ],
+                "rev4_controls": ["AC-6"],
+                "rev5_controls": ["AC-6(1)"]
+            },
+            {
+                "id": "327",
+                "rule_name": "Use of a Broken or Risky Cryptographic Algorithm",
+                "description": "The product uses a broken or risky cryptographic algorithm or protocol.",
+                "extended_description": "This includes algorithms like DES or MD5, which are known to have significant vulnerabilities.",
+                "cwe_usage": "Discouraged",
+                "applicable_platforms": [
+                    {
+                        "Type": "Language",
+                        "Class": "Not Language-Specific",
+                        "Prevalence": "Undetermined"
+                    }
+                ],
+                "common_consequences": [
+                    {
+                        "Scope": ["Confidentiality", "Integrity"],
+                        "Impact": ["Bypass Protection Mechanism"]
+                    }
+                ],
+                "potential_mitigations": [
+                    {
+                        "Phase": ["Implementation"],
+                        "Description": "Use strong cryptographic algorithms like AES or SHA-256.",
+                        "MitigationID": "MIT-3",
+                        "Effectiveness": "High"
+                    }
+                ],
+                "rev4_controls": ["SC-13"],
+                "rev5_controls": ["SC-13(1)"]
+            },
+            {
+                "id": "328",
+                "rule_name": "Use of Weak Hash",
+                "description": "The product uses a hashing algorithm that is considered cryptographically weak, such as MD5 or SHA-1.",
+                "extended_description": "Weak hashing algorithms are vulnerable to collision attacks, undermining security in cryptographic operations.",
+                "cwe_usage": "Discouraged",
+                "applicable_platforms": [
+                    {
+                        "Type": "Language",
+                        "Class": "Not Language-Specific",
+                        "Prevalence": "Undetermined"
+                    }
+                ],
+                "common_consequences": [
+                    {
+                        "Scope": ["Integrity"],
+                        "Impact": ["Bypass Protection Mechanism"]
+                    }
+                ],
+                "potential_mitigations": [
+                    {
+                        "Phase": ["Implementation"],
+                        "Description": "Replace MD5 or SHA-1 with stronger hash functions like SHA-256 or SHA-3.",
+                        "MitigationID": "MIT-4",
+                        "Effectiveness": "High"
+                    }
+                ],
+                "rev4_controls": ["SC-13"],
+                "rev5_controls": ["SC-13(1)"]
+            }
+        ]
+    }'''
+    catalog_file_content = '''[
+        {
+            "family": "Access Control (AC)",
+            "control_id": "AC-6",
+            "title": "LEAST PRIVILEGE",
+            "language": "some text",
+            "supplemental_guidance": "some more text",
+            "implementation_guidance": "yet more text",
+            "nist_discussion": "references",
+            "related_controls": ["AC-2", "CM-6"],
+            "nist": ["AC-6"],
+            "nist_sort_added": "AC-06",
+            "nist_control_clean": "AC-06",
+            "org_ref": ["None"],
+            "overlay": ["Low", "Mod", "High"],
+            "nist_control": "AC-6",
+            "assessment_methods": "Missing",
+            "assessment_objective": "Missing",
+            "check": "Review access controls",
+            "fix": "Implement least privilege",
+            "tags": [
+                {
+                    "nist": ["AC-06", "AC-6"],
+                    "grc": "AC-6",
+                    "baseline": ["Low", "Mod", "High"],
+                    "org_ref": ["None"],
+                    "nist_references": ["None"],
+                    "related_controls": ["AC-2", "CM-6"]
+                }
+            ],
+            "code": "code_block",
+            "baseline_id": "R4-AC-6",
+            "id": "None",
+            "assessment_year": "Unchecked"
+        },
+        {
+            "family": "System and Communications Protection (SC)",
+            "control_id": "SC-13",
+            "title": "CRYPTOGRAPHIC PROTECTION",
+            "language": "some text",
+            "supplemental_guidance": "some more text",
+            "implementation_guidance": "yet more text",
+            "nist_discussion": "references",
+            "related_controls": ["SC-8", "SC-12"],
+            "nist": ["SC-13"],
+            "nist_sort_added": "SC-13",
+            "nist_control_clean": "SC-13",
+            "org_ref": ["None"],
+            "overlay": ["Mod", "High"],
+            "nist_control": "SC-13",
+            "assessment_methods": "Missing",
+            "assessment_objective": "Missing",
+            "check": "Verify cryptographic controls",
+            "fix": "Use approved cryptographic algorithms",
+            "tags": [
+                {
+                    "nist": ["SC-13", "SC-13(1)"],
+                    "grc": "SC-13",
+                    "baseline": ["Mod", "High"],
+                    "org_ref": ["None"],
+                    "nist_references": ["None"],
+                    "related_controls": ["SC-8", "SC-12"]
+                }
+            ],
+            "code": "code_block",
+            "baseline_id": "R4-SC-13",
+            "id": "None",
+            "assessment_year": "Unchecked"
+        }
+    ]'''
+
+    # Run main with command-line arguments
+    main(args.input_path, args.output_dir, cwe_file_content, catalog_file_content, args.thresholds)
+```
