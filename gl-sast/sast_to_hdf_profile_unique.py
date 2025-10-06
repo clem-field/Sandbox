@@ -1,4 +1,3 @@
-```python
 import json
 import hashlib
 import datetime
@@ -693,4 +692,3 @@ if __name__ == "__main__":
 
     # Run main with command-line arguments
     main(args.input_path, args.output_dir, cwe_file_content, catalog_file_content, args.thresholds)
-```
