@@ -1,9 +1,7 @@
-import json
-import hashlib
-import datetime
-from collections import Counter, defaultdict
-import os
-import argparse
+import libraries as lib
+import locals as var
+
+
 try:
     import yaml
 except ImportError:
@@ -16,10 +14,10 @@ def print_error(msg):
 # Load JSON files
 def load_json_file(file_path, content=None):
     if content:
-        return json.loads(content)
+        return lib.json.loads(content)
     try:
         with open(file_path, 'r') as f:
-            return json.load(f)
+            return lib.json.load(f)
     except Exception as e:
         print_error(f"Error loading JSON file {file_path}: {str(e)}")
         raise
@@ -27,8 +25,8 @@ def load_json_file(file_path, content=None):
 def generate_sha(data):
     """Generate SHA256 hash for profile data"""
     print(f"📝 Signing gl-sast-report")
-    serialized_data = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(serialized_data.encode()).hexdigest()
+    serialized_data = lib.json.dumps(data, sort_keys=True)
+    return lib.hashlib.sha256(serialized_data.encode()).hexdigest()
 
 def load_yaml_file(file_path=None, content=None):
     if not yaml:
@@ -260,44 +258,36 @@ end
 
 # Save Ruby control file
 def save_ruby_control(cwe_id, content, output_dir="ruby_controls"):
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, f"CWE-{cwe_id}.rb")
+    lib.os.makedirs(output_dir, exist_ok=True)
+    file_path = lib.os.path.join(output_dir, f"CWE-{cwe_id}.rb")
     print(f"🗄️ Saving Ruby control file to: {file_path}")
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-# Parse line range from aggregated_locations as low/high integer pair
-def get_line_range(aggregated_locations):
+# Parse first start_line from aggregated_locations as an integer
+def get_first_line(aggregated_locations):
+    # Returns the first valid start_line as an integer for source_location.line
     if not aggregated_locations:
-        return 0, 0
+        return 0
     try:
-        line_numbers = []
         locations = aggregated_locations.split(", ")
-        for loc in locations:
-            # Extract start_line and end_line from format "file: start_line/end_line"
-            line_part = loc.split(": ")[1] if ": " in loc else loc
-            start_line, end_line = line_part.split("/") if "/" in line_part else (line_part, line_part)
-            try:
-                start_line = int(start_line)
-                line_numbers.append(start_line)
-                if end_line:
-                    line_numbers.append(int(end_line))
-            except ValueError:
-                continue
-        if not line_numbers:
-            return 0, 0
-        low = min(line_numbers)
-        high = max(line_numbers)
-        return low, high
-    except Exception as e:
-        print(f"⚠️ Error parsing line numbers from {aggregated_locations}: {str(e)}. Using 0/0.")
-        return 0, 0
+        if not locations:
+            return 0
+        # Take the first location
+        first_loc = locations[0]
+        # Extract start_line from format "file: start_line/end_line"
+        line_part = first_loc.split(": ")[1] if ": " in first_loc else first_loc
+        start_line = line_part.split("/")[0] if "/" in line_part else line_part
+        return int(start_line)
+    except (ValueError, IndexError) as e:
+        print(f"⚠️ Error parsing first line number from {aggregated_locations}: {str(e)}. Using 0.")
+        return 0
 
 # Convert GitLab SAST report to HDF and generate Ruby controls
 def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, input_file_name):
     try:
-        duration = datetime.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
-                   datetime.datetime.strptime(sast_report["scan"].get("start_time", datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
+        duration = lib.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
+                   lib.datetime.strptime(sast_report["scan"].get("start_time", lib.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
         run_time = round(duration.total_seconds() / 86400, 6)
     except (KeyError, ValueError) as e:
         print(f"⚠️ Error calculating duration: {str(e)}. Using default run_time.")
@@ -352,7 +342,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
         }
     }
     
-    vuln_counts = Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
+    vuln_counts = lib.Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
     compliance_issues = check_failure_thresholds(vuln_counts, thresholds)
     
     profile = hdf_output["profiles"][0]
@@ -364,7 +354,7 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
     print(f"🧭 Started mapping CWE's to Controls for {input_file_name}")
     
     # Collect unique CWEs and group vulns by primary CWE
-    cwe_to_vulns = defaultdict(list)
+    cwe_to_vulns = lib.defaultdict(list)
     for vuln in sast_report.get("vulnerabilities", []):
         cwes = vuln.get("cwe", []) or [ident['value'] for ident in vuln.get("identifiers", []) if ident.get('type') == 'cwe']
         if cwes:
@@ -430,9 +420,8 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
         )
         save_ruby_control(unique_cwe_id, ruby_content, output_dir)
         
-        # Get line range for source_location
-        low, high = get_line_range(aggregated_locations)
-        line_range = f"{low}/{high}" if low != 0 or high != 0 else "0/0"
+        # Get first line number for source_location
+        first_line = get_first_line(aggregated_locations)
         
         # HDF control
         control = {
@@ -451,12 +440,12 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
                     "code_desc": description,
                     "message": message,
                     "run_time": run_time,
-                    "start_time": sast_report['scan'].get("start_time", datetime.datetime.utcnow().isoformat() + "Z"),
+                    "start_time": sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat() + "Z"),
                     "status": severity_info['status']
                 }
             ],
             "source_location": {
-                "line": line_range,
+                "line": first_line,
                 "ref": aggregated_locations
             },
             "tags": {
@@ -484,33 +473,33 @@ def convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, 
 def save_hdf_output(hdf_data, output_path):
     print(f"🗄️ Saving HDF Data to: {output_path}")
     with open(output_path, 'w') as f:
-        json.dump(hdf_data, f, indent=2)
+        lib.json.dump(hdf_data, f, indent=2)
 
 # Main function
-def main(input_path, output_dir, cwe_file_content, catalog_file_content, thresholds_file=None):
+def main(input_path, output_dir, cwe_file, catalog_file, thresholds_file=None):
     try:
         # Load static files
-        cwe_data = load_json_file(None, cwe_file_content)['cwe_data']
+        cwe_data = load_json_file(None, cwe_file)['cwe_data']
         print(f"📁 Loaded sast_cwe.json for CWE Data")
-        catalog_data = load_json_file(None, catalog_file_content)
+        catalog_data = load_json_file(None, catalog_file)
         print(f"📂 Loaded catalog.json for SAFR data")
         thresholds = load_yaml_file(thresholds_file)
         
         # Ensure output directory exists
-        os.makedirs(output_dir, exist_ok=True)
+        lib.os.makedirs(output_dir, exist_ok=True)
         
         # Check if input_path is a file or directory
         input_files = []
-        if os.path.isfile(input_path):
+        if lib.os.path.isfile(input_path):
             if input_path.endswith('.json'):
                 input_files.append(input_path)
             else:
                 print(f"⚠️ Input file {input_path} is not a JSON file, skipping.")
-        elif os.path.isdir(input_path):
-            for root, _, files in os.walk(input_path):
+        elif lib.os.path.isdir(input_path):
+            for root, _, files in lib.os.walk(input_path):
                 for file in files:
                     if file.endswith('.json'):
-                        input_files.append(os.path.join(root, file))
+                        input_files.append(lib.os.path.join(root, file))
             if not input_files:
                 print(f"⚠️ No JSON files found in directory {input_path}.")
                 return
@@ -526,8 +515,8 @@ def main(input_path, output_dir, cwe_file_content, catalog_file_content, thresho
                 print(f"📁 Loaded {input_file} for gl-sast-report")
                 
                 # Generate output filename based on input filename
-                input_file_name = os.path.basename(input_file).replace('.json', '')
-                output_file = os.path.join(output_dir, f"output_hdf_{input_file_name}.json")
+                input_file_name = lib.os.path.basename(input_file).replace('.json', '')
+                output_file = lib.os.path.join(output_dir, f"output_hdf_{input_file_name}.json")
                 
                 # Convert to HDF and generate Ruby controls
                 hdf_data = convert_to_hdf(sast_report, cwe_data, catalog_data, thresholds, output_dir, input_file_name)
@@ -543,10 +532,12 @@ def main(input_path, output_dir, cwe_file_content, catalog_file_content, thresho
 
 if __name__ == "__main__":
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Convert GitLab SAST report(s) to HDF format and generate Ruby controls.")
+    parser = lib.argparse.ArgumentParser(description="Convert GitLab SAST report(s) to HDF format and generate Ruby controls.")
     parser.add_argument("-i", "--input", required=True, help="Path to a single gl-sast-report.json file or a directory containing multiple JSON files.")
     parser.add_argument("-o", "--output", required=True, help="Directory to save HDF JSON and Ruby control files.")
     parser.add_argument("-T", "--thresholds", help="Path to thresholds YAML file (optional).", default=None)
+    cwe_file = var.cwe_file
+    catalog_file = var.catalog_file
     args = parser.parse_args()
 
     # Run main with command-line arguments

@@ -1,6 +1,7 @@
+
+import  argparse, datetime, hashlib, json, os, requests, sys, time
 from bs4 import BeautifulSoup
-import json, hashlib, os, datetime, sys, time, requests
 import pandas as pd
+from collections import Counter, defaultdict
 from datetime import datetime
 from jsonschema import validate
-from collections import Counter, defaultdict
