@@ -20,16 +20,15 @@ def load_json_file(file_path, content=None):
     except Exception as e:
         print_error(f"Error loading JSON file {file_path}: {str(e)}")
         raise
-
-def generate_sha256(data):
+    
+def generate_sha256(data: str) -> str:
     """Generate SHA256 hash for profile data"""
-    print(f"📝 Signing gl-sast-report")
-    serialized_data = lib.json.dumps(data, sort_keys=True)
-    return lib.hashlib.sha256(serialized_data.encode()).hexdigest()
+    print(f"📝  Signing gl-sast-report")
+    return lib.hashlib.sha256(data.encode()).hexdigest()
 
 # Added error handling for either missing file or missing library
 def load_yaml_file(file_path=None, content=None):
-    if not yaml:
+    if not lib.yaml:
         print("❌ PyYAML module not found. Using default thresholds.")
         return {
             'passed': {
@@ -120,15 +119,18 @@ def get_nist_and_grc_controls(cwe_id, cwe_data, catalog_data):
     org_refs = set()
     nist_references = set()
     related_controls = set()
-    cwe_id = cwe_id.replace('CWE-', '')
+    cwe_id = cwe_id.replace('CWE-', '')  # Normalize (e.g., 'CWE-614' -> '614')
     
+    # Find CWE entry
     cwe_entry = next((entry for entry in cwe_data if entry['id'] == cwe_id), None)
     if not cwe_entry:
         print(f"⚠️ CWE {cwe_id} not found in sast_cwe.json")
         return [], [], [], [], [], cwe_entry
     
+    # Get rev4_controls and rev5_controls
     controls = cwe_entry.get('rev4_controls', []) + cwe_entry.get('rev5_controls', [])
     
+    # Match controls against catalog
     for control in controls:
         normalized_control = normalize_nist_control(control)
         for catalog_entry in catalog_data:
@@ -167,7 +169,7 @@ def check_failure_thresholds(vuln_counts, thresholds):
         max_allowed = failed_limits.get(severity.lower(), {}).get('max', float('inf'))
         if count > max_allowed:
             compliance_issues.append(f"{severity} vulnerabilities ({count}) exceed max allowed ({max_allowed})")
-    print(f"🆘 Compliance Issues detected {compliance_issues}")
+    print(f"🆘  {lib.Fore.RED}Compliance Issues detected {compliance_issues} {lib.Style.RESET_ALL}")
     return compliance_issues
 
 # Sanitize string for Ruby output
@@ -286,14 +288,14 @@ def get_first_line(aggregated_locations):
 # Convert GitLab SAST report to HDF and generate Ruby controls
 def convert_to_hdf(input_file, sast_report, cwe_data, catalog_data, thresholds, output_dir, input_file_name, metadata_file=None):
     try:
-        duration = lib.datetime.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
-                   lib.datetime.datetime.strptime(sast_report["scan"].get("start_time", lib.datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
+        duration = lib.datetime.strptime(sast_report["scan"].get("end_time"), "%Y-%m-%dT%H:%M:%S") - \
+                   lib.datetime.strptime(sast_report["scan"].get("start_time", lib.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")), "%Y-%m-%dT%H:%M:%S")
         run_time = round(duration.total_seconds() / 86400, 6)
     except (KeyError, ValueError) as e:
         print(f"⚠️ Error calculating duration: {str(e)}. Using default run_time.")
         run_time = 0.000139
 
-    print(f"⏱️ Duration calculated as {run_time}")
+    print(f"⏱️  Duration calculated as {lib.Fore.GREEN}{run_time}{lib.Style.RESET_ALL}")
     hdf_output = {
         "platform": {
             "name": "GitLab",
@@ -309,7 +311,7 @@ def convert_to_hdf(input_file, sast_report, cwe_data, catalog_data, thresholds, 
                 "license": "Apache-2.0",
                 "maintainer": "",
                 "name": f"GitLab SAST Scanning Profile - {input_file_name}",
-                "sha256": generate_sha256(sast_report),
+                "sha256": generate_sha256(input_file),
                 "status": "loaded",
                 "summary": "GitLab enriched profile",
                 "supports": [
@@ -358,20 +360,23 @@ def convert_to_hdf(input_file, sast_report, cwe_data, catalog_data, thresholds, 
     vuln_counts = lib.Counter(vuln.get('severity', 'Unknown') for vuln in sast_report.get('vulnerabilities', []))
     compliance_issues = check_failure_thresholds(vuln_counts, thresholds)
     
+    # Update profile and passthrough data
     profile = hdf_output["profiles"][0]
     if compliance_issues:
         profile["status"] = "failed"
         hdf_output["passthrough"]["auxiliary_data"][1]["data"]["compliance_issues"] = compliance_issues
+    else:
+        profile["status"] = "loaded"
 
     controls = []
     print(f"🧭 Started mapping CWE's to Controls for {input_file_name}")
     
-    # Collect unique CWEs and group vulns by primary CWE
+    # Collect unique CWEs and group vulns by primary CWE (first in list)
     cwe_to_vulns = lib.defaultdict(list)
     for vuln in sast_report.get("vulnerabilities", []):
         cwes = vuln.get("cwe", []) or [ident['value'] for ident in vuln.get("identifiers", []) if ident.get('type') == 'cwe']
         if cwes:
-            primary_cwe = cwes[0].replace('CWE-', '')
+            primary_cwe = cwes[0].replace('CWE-', '')  # Normalize to ID
             cwe_to_vulns[primary_cwe].append(vuln)
     
     for unique_cwe_id, matching_vulns in sorted(cwe_to_vulns.items()):
@@ -453,7 +458,7 @@ def convert_to_hdf(input_file, sast_report, cwe_data, catalog_data, thresholds, 
                     "code_desc": description,
                     "message": message,
                     "run_time": run_time,
-                    "start_time": sast_report['scan'].get("start_time", lib.datetime.datetime.utcnow().isoformat() + "Z"),
+                    "start_time":sast_report['scan'].get("start_time", lib.datetime.utcnow().isoformat()+"Z"),
                     "status": severity_info['status']
                 }
             ],
@@ -492,10 +497,11 @@ def save_hdf_output(hdf_data, output_path):
 def main(input_path, output_dir, cwe_file, catalog_file, thresholds_file=None, metadata_file=None):
     try:
         # Load static files
+        print(f"Loading Static files:")
         cwe_data = load_json_file(cwe_file)['cwe_data']
-        print(f"📁 Loaded {cwe_file} for CWE Data")
+        print(f"📁 Loaded {lib.Fore.GREEN}{cwe_file}{lib.Style.RESET_ALL} for CWE Data")
         catalog_data = load_json_file(catalog_file)
-        print(f"📂 Loaded {catalog_file} for SAFR data")
+        print(f"📂 Loaded {lib.Fore.GREEN}{catalog_file}{lib.Style.RESET_ALL} for catalog data")
         thresholds = load_yaml_file(thresholds_file)
         
         # Ensure output directory exists
@@ -558,7 +564,7 @@ if __name__ == "__main__":
     print(f"Input file/folder: {lib.Fore.GREEN}{args.input}{lib.Style.RESET_ALL}")
     print(f"Output Location: {lib.Fore.GREEN}{args.output}{lib.Style.RESET_ALL}")
     print(f"CWE Mapping: {lib.Fore.GREEN}{cwe_file}{lib.Style.RESET_ALL}")
-    print(f"SAFR Catalog: {lib.Fore.GREEN}{catalog_file}{lib.Style.RESET_ALL}")
+    print(f"Control Catalog: {lib.Fore.GREEN}{catalog_file}{lib.Style.RESET_ALL}")
     print(f"Thresholds (optional): {lib.Fore.GREEN}{args.thresholds}{lib.Style.RESET_ALL}")
     print(f"Metadata (optional): {lib.Fore.GREEN}{args.metadata}{lib.Style.RESET_ALL}")
     print(f"======================================\n\n")
