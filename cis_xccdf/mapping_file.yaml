@@ -1,0 +1,26 @@
+id:                           # Required
+  - ID
+  - "recommendation #"
+title:                        # Required
+  - Title                     # You can give more than one column header as a value for an
+  - title                     # attribute if you are not sure how it will be spelled in the input.
+desc:
+  - Description
+  - Discussion
+  - description
+impact: 0.5                  # If impact is set, its value will be used for every control
+desc.rationale:
+  - Rationale
+  - rationale statement
+desc.check:                   # Required
+  - Audit
+  - audit procedure
+desc.fix:
+  - Remediation
+  - remediation procedure
+desc.additional_information:  # You can define arbitrary values under desc and tag
+  - Additional Information    # if you have extra fields to record
+desc.default_value:
+  - Default Value
+ref:                          # InSpec keyword - saf will check this column for URLs (links to documentation)
+  - References                # and record each address as a ref attribute
