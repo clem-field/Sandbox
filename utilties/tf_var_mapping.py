@@ -112,7 +112,7 @@ def save_inventory_to_csv(documented_vars: List[Dict[str, Any]], output_file: st
                 writer.writerow({
                     'name': var['name'],
                     'type': var['type'],
-                    'default': json.dumps(var['default']),  # Handle complex types
+                    'default': json.dumps(var['default']),
                     'assigned_value': json.dumps(var['assigned_value']),
                     'effective_value': json.dumps(var['effective_value']),
                     'description': var['description'],
@@ -187,19 +187,19 @@ def main():
     """Main function to process Terraform directories and generate inventory."""
     parser = argparse.ArgumentParser(description="Generate Terraform variable inventory.")
     parser.add_argument(
-        '--input-dir',
+        '-i', '--input-dir',
         type=str,
         required=True,
         help="Root directory containing Terraform files to process"
     )
     parser.add_argument(
-        '--output-file',
+        '-o', '--output-file',
         type=str,
         default='terraform_inventory',
         help="Output file name (without extension)"
     )
     parser.add_argument(
-        '--output-format',
+        '-f', '--output-format',
         type=str,
         choices=['json', 'csv', 'xlsx', 'markdown'],
         default='json',
