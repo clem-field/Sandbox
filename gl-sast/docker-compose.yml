@@ -1,0 +1,31 @@
+services:
+  uv-jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        python_function: control_catalogs
+    environment:
+      - AWS_PROFILE={some_profile}
+      - GIT_SSL_NO_VERIFY=true
+    volumes:
+      - .pyproject.toml:/app/jupyter-lab/pyproject.toml
+      - ./uv.lock:/app/jupyter-lab/uv.lock
+      - ./python-version:/app/jupyter-lab/.python-version
+      - ./notbooks/:/app/jupyter-lab/notebooks/
+      - ./data:/app/jupyter-lab/data
+      - ./scripts:/app/jupyter-lab/scripts
+    develop:
+      watch:
+        - action: sync
+          path: ./scripts
+          target: /app/jupyter-lab/scripts
+        - action: sync
+          path: ./data
+          target: /app/jupyter-lab/data
+    tty: true
+    stdin_open: true
+    command: >
+      bash -c "uv sync --active && jupyter-lab --no-browser --ip 0.0.0.0 --NotebookApp.token='' --NotebookApp.password='' --allow-root"
+    ports:
+      - "8888:8888"

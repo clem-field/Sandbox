@@ -1,0 +1,18 @@
+stages:
+  - prepare
+  - deploy
+
+prepare_credentials:
+  stage: prepare
+  script:
+    - bin make-aws.sh
+  artifacts:
+    paths:
+      - aws_credentials
+    expire_in: 1 day
+
+deploy_job:
+  stage: deploy
+  script:
+    - export AWS_SHARED_CREDENTIALS_FILE=aws_credentials
+    - do something

@@ -1,4 +1,4 @@
-### Add libraries, in alphabetical order, that the Policy-As-Code will use throughout the repo
+### Libraries that are used throughout the sandbox as part of development
 import argparse, csv, datetime, hashlib, json, lxml, openpyxl, os, re, requests, string, sys, textwrap, uuid, yaml
 import numpy as np
 import pandas as pd
