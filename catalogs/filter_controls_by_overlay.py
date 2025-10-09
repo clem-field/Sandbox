@@ -7,8 +7,8 @@ def validate_json_file(file_path):
         raise ValueError("Input file must have a .json extension.")
     try:
         with open(file_path, 'r') as f:
-            json.load(f)
-    except json.JSONDecodeError:
+            lib.json.load(f)
+    except lib.json.JSONDecodeError:
         raise ValueError("Input file is not a valid JSON file.")
     except FileNotFoundError:
         raise ValueError(f"Input file '{file_path}' not found.")
@@ -25,7 +25,7 @@ def extract_control_data(control):
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract NIST controls matching a given overlay or compare two overlays.")
+    parser = lib.argparse.ArgumentParser(description="Extract NIST controls matching a given overlay or compare two overlays.")
     parser.add_argument('-i', '--input', required=True, help="Path to the input JSON file.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output directory.")
     parser.add_argument('-f', '--filter', required=True, help="Overlay filter (e.g., 'Low', 'Mod', 'High').")
@@ -47,7 +47,7 @@ def main():
 
     # Load JSON data
     with open(args.input, 'r') as f:
-        data = json.load(f)
+        data = lib.json.load(f)
 
     # Filter controls
     matched = []
@@ -85,8 +85,8 @@ def main():
         return
 
     # Create DataFrame and save to XLSX
-    df = pd.DataFrame(matched)
-    output_dir = Path(args.output)
+    df = lib.pd.DataFrame(matched)
+    output_dir = lib.Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / output_filename
     df.to_excel(output_file, index=False)
