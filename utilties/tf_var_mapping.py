@@ -1,26 +1,19 @@
-import os
-import json
-import csv
-import argparse
-import hcl2
-from pathlib import Path
-from typing import Dict, List, Any
-import logging
-from openpyxl import Workbook
+import libraries as lib
+import locals as var
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+lib.logging.basicConfig(level=lib.logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def parse_terraform_file(file_path: str) -> Dict:
+def parse_terraform_file(file_path: str) -> lib.Dict:
     """Parse a Terraform (.tf or .tfvars) file and return its contents."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            return hcl2.load(f)
+            return lib.hcl2.load(f)
     except Exception as e:
-        logging.error(f"Error parsing file {file_path}: {str(e)}")
+        lib.logging.error(f"Error parsing file {file_path}: {str(e)}")
         return {}
 
-def extract_variables_from_tf(file_path: str) -> List[Dict[str, Any]]:
+def extract_variables_from_tf(file_path: str) -> lib.List[lib.Dict[str, lib.Any]]:
     """Extract variable definitions from a .tf file."""
     variables = []
     data = parse_terraform_file(file_path)
@@ -38,7 +31,7 @@ def extract_variables_from_tf(file_path: str) -> List[Dict[str, Any]]:
                 variables.append(variable_info)
     return variables
 
-def extract_values_from_tfvars(file_path: str) -> Dict[str, Any]:
+def extract_values_from_tfvars(file_path: str) -> lib.Dict[str, lib.Any]:
     """Extract variable values from a .tfvars file."""
     values = {}
     data = parse_terraform_file(file_path)
@@ -47,7 +40,7 @@ def extract_values_from_tfvars(file_path: str) -> Dict[str, Any]:
         values[key] = value
     return values
 
-def collect_terraform_variables(root_dir: str) -> Dict[str, Any]:
+def collect_terraform_variables(root_dir: str) -> lib.Dict[str, lib.Any]:
     """Recursively collect variables and their values from Terraform directories."""
     inventory = {
         'variables': [],
@@ -55,25 +48,25 @@ def collect_terraform_variables(root_dir: str) -> Dict[str, Any]:
     }
     
     # Walk through the directory
-    for root, _, files in os.walk(root_dir):
+    for root, _, files in lib.os.walk(root_dir):
         for file in files:
-            file_path = os.path.join(root, file)
+            file_path = lib.os.path.join(root, file)
             
             # Process .tf files for variable definitions
             if file.endswith('.tf'):
-                logging.info(f"Processing Terraform file: {file_path}")
+                lib.logging.info(f"Processing Terraform file: {file_path}")
                 variables = extract_variables_from_tf(file_path)
                 inventory['variables'].extend(variables)
             
             # Process .tfvars files for variable values
             if file.endswith('.tfvars'):
-                logging.info(f"Processing tfvars file: {file_path}")
+                lib.logging.info(f"Processing tfvars file: {file_path}")
                 values = extract_values_from_tfvars(file_path)
                 inventory['values'].update(values)
     
     return inventory
 
-def merge_variable_info(inventory: Dict[str, Any]) -> List[Dict[str, Any]]:
+def merge_variable_info(inventory: lib.Dict[str, lib.Any]) -> lib.List[lib.Dict[str, lib.Any]]:
     """Merge variable definitions with their values for documentation."""
     documented_vars = []
     
@@ -92,40 +85,40 @@ def merge_variable_info(inventory: Dict[str, Any]) -> List[Dict[str, Any]]:
     
     return documented_vars
 
-def save_inventory_to_json(documented_vars: List[Dict[str, Any]], output_file: str):
+def save_inventory_to_json(documented_vars: lib.List[lib.Dict[str, lib.Any]], output_file: str):
     """Save the inventory to a JSON file."""
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(documented_vars, f, indent=2, sort_keys=True)
-        logging.info(f"Inventory saved to {output_file}")
+            lib.json.dump(documented_vars, f, indent=2, sort_keys=True)
+        lib.logging.info(f"Inventory saved to {output_file}")
     except Exception as e:
-        logging.error(f"Error saving inventory to {output_file}: {str(e)}")
+        lib.logging.error(f"Error saving inventory to {output_file}: {str(e)}")
 
-def save_inventory_to_csv(documented_vars: List[Dict[str, Any]], output_file: str):
+def save_inventory_to_csv(documented_vars: lib.List[lib.Dict[str, lib.Any]], output_file: str):
     """Save the inventory to a CSV file."""
     try:
         headers = ['name', 'type', 'default', 'assigned_value', 'effective_value', 'description', 'file']
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
+            writer = lib.csv.DictWriter(f, fieldnames=headers)
             writer.writeheader()
             for var in documented_vars:
                 writer.writerow({
                     'name': var['name'],
                     'type': var['type'],
-                    'default': json.dumps(var['default']),
-                    'assigned_value': json.dumps(var['assigned_value']),
-                    'effective_value': json.dumps(var['effective_value']),
+                    'default': lib.json.dumps(var['default']),
+                    'assigned_value': lib.json.dumps(var['assigned_value']),
+                    'effective_value': lib.json.dumps(var['effective_value']),
                     'description': var['description'],
                     'file': var['file']
                 })
-        logging.info(f"Inventory saved to {output_file}")
+        lib.logging.info(f"Inventory saved to {output_file}")
     except Exception as e:
-        logging.error(f"Error saving inventory to {output_file}: {str(e)}")
+        lib.logging.error(f"Error saving inventory to {output_file}: {str(e)}")
 
-def save_inventory_to_xlsx(documented_vars: List[Dict[str, Any]], output_file: str):
+def save_inventory_to_xlsx(documented_vars: lib.List[lib.Dict[str, lib.Any]], output_file: str):
     """Save the inventory to an XLSX file."""
     try:
-        wb = Workbook()
+        wb = lib.Workbook()
         ws = wb.active
         ws.title = "Terraform Inventory"
         
@@ -138,19 +131,19 @@ def save_inventory_to_xlsx(documented_vars: List[Dict[str, Any]], output_file: s
             ws.append([
                 var['name'],
                 var['type'],
-                json.dumps(var['default']),
-                json.dumps(var['assigned_value']),
-                json.dumps(var['effective_value']),
+                lib.json.dumps(var['default']),
+                lib.json.dumps(var['assigned_value']),
+                lib.json.dumps(var['effective_value']),
                 var['description'],
                 var['file']
             ])
         
         wb.save(output_file)
-        logging.info(f"Inventory saved to {output_file}")
+        lib.logging.info(f"Inventory saved to {output_file}")
     except Exception as e:
-        logging.error(f"Error saving inventory to {output_file}: {str(e)}")
+        lib.logging.error(f"Error saving inventory to {output_file}: {str(e)}")
 
-def save_inventory_to_markdown(documented_vars: List[Dict[str, Any]], output_file: str):
+def save_inventory_to_markdown(documented_vars: lib.List[lib.Dict[str, lib.Any]], output_file: str):
     """Save the inventory to a Markdown file with a table."""
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -161,15 +154,15 @@ def save_inventory_to_markdown(documented_vars: List[Dict[str, Any]], output_fil
             # Write table rows
             for var in documented_vars:
                 f.write(
-                    f"| {var['name']} | {var['type']} | {json.dumps(var['default'])} | "
-                    f"{json.dumps(var['assigned_value'])} | {json.dumps(var['effective_value'])} | "
+                    f"| {var['name']} | {var['type']} | {lib.json.dumps(var['default'])} | "
+                    f"{lib.json.dumps(var['assigned_value'])} | {lib.json.dumps(var['effective_value'])} | "
                     f"{var['description'] or ''} | {var['file']} |\n"
                 )
-        logging.info(f"Inventory saved to {output_file}")
+        lib.logging.info(f"Inventory saved to {output_file}")
     except Exception as e:
-        logging.error(f"Error saving inventory to {output_file}: {str(e)}")
+        lib.logging.error(f"Error saving inventory to {output_file}: {str(e)}")
 
-def save_inventory(documented_vars: List[Dict[str, Any]], output_file: str, output_format: str):
+def save_inventory(documented_vars: lib.List[lib.Dict[str, lib.Any]], output_file: str, output_format: str):
     """Save the inventory in the specified format."""
     output_format = output_format.lower()
     if output_format == 'json':
@@ -181,11 +174,11 @@ def save_inventory(documented_vars: List[Dict[str, Any]], output_file: str, outp
     elif output_format == 'markdown':
         save_inventory_to_markdown(documented_vars, output_file)
     else:
-        logging.error(f"Unsupported output format: {output_format}")
+        lib.logging.error(f"Unsupported output format: {output_format}")
 
 def main():
     """Main function to process Terraform directories and generate inventory."""
-    parser = argparse.ArgumentParser(description="Generate Terraform variable inventory.")
+    parser = lib.argparse.ArgumentParser(description="Generate Terraform variable inventory.")
     parser.add_argument(
         '-i', '--input-dir',
         type=str,
@@ -205,22 +198,37 @@ def main():
         default='json',
         help="Output format: json, csv, xlsx, or markdown"
     )
+    parser.add_argument(
+        '-d', '--output-dir',
+        type=str,
+        default='.',
+        help="Output directory for the inventory file (defaults to current directory)"
+    )
     
     args = parser.parse_args()
     
     # Validate input directory
-    if not os.path.isdir(args.input_dir):
-        logging.error(f"Directory {args.input_dir} does not exist.")
+    if not lib.os.path.isdir(args.input_dir):
+        lib.logging.error(f"Directory {args.input_dir} does not exist.")
         return
     
-    # Append appropriate file extension based on output format
+    # Ensure output directory exists
+    output_dir = lib.os.path.abspath(args.output_dir)
+    try:
+        lib.os.makedirs(output_dir, exist_ok=True)
+    except Exception as e:
+        lib.logging.error(f"Error creating output directory {output_dir}: {str(e)}")
+        return
+    
+    # Construct full output file path with appropriate extension
     output_extensions = {
         'json': '.json',
         'csv': '.csv',
         'xlsx': '.xlsx',
         'markdown': '.md'
     }
-    output_file = f"{args.output_file}{output_extensions[args.output_format]}"
+    output_filename = f"{args.output_file}{output_extensions[args.output_format]}"
+    output_file = lib.os.path.join(output_dir, output_filename)
     
     # Collect variables and values
     inventory = collect_terraform_variables(args.input_dir)
@@ -232,9 +240,9 @@ def main():
     save_inventory(documented_vars, output_file, args.output_format)
     
     # Print summary
-    logging.info(f"Found {len(documented_vars)} variables in {args.input_dir}")
+    lib.logging.info(f"Found {len(documented_vars)} variables in {args.input_dir}")
     for var in documented_vars:
-        logging.info(
+        lib.logging.info(
             f"Variable: {var['name']}, Type: {var['type']}, "
             f"Default: {var['default']}, Assigned: {var['assigned_value']}, "
             f"Effective: {var['effective_value']}, File: {var['file']}"
