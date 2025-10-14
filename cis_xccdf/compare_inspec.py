@@ -43,65 +43,81 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     for cid in set(base) - set(target):
         base_check = base[cid]['check']
         base_fix = base[cid]['fix']
-        reassigned = False
         if fuzzy:
-            matches = []
+            best_check_match = None
+            best_fix_match = None
+            best_check_similarity = 0.0
+            best_fix_similarity = 0.0
             for target_cid, target_data in target.items():
                 check_similarity = is_similar(base_check, target_data['check'])
                 fix_similarity = is_similar(base_fix, target_data['fix'])
-                match_details = []
-                if check_similarity >= threshold:
-                    match_details.append(f"Check found in target {target_cid} (similarity: {check_similarity:.2f})")
-                if fix_similarity >= threshold:
-                    match_details.append(f"Fix found in target {target_cid} (similarity: {fix_similarity:.2f})")
-                if match_details:
-                    matches.append('; '.join(match_details))
-                    reassigned = True
-            if matches:
-                differences['reassigned'].append({
-                    'control_id': cid,
-                    'nist': base[cid]['nist'],
-                    'change': 'reassigned',
-                    'details': '; '.join(matches)
-                })
-        if not reassigned:
-            differences['removed'].append({
-                'control_id': cid,
-                'nist': base[cid]['nist'],
-                'change': 'removed'
-            })
+                if check_similarity >= threshold and check_similarity > best_check_similarity:
+                    best_check_similarity = check_similarity
+                    best_check_match = (target_cid, target_data['check'])
+                if fix_similarity >= threshold and fix_similarity > best_fix_similarity:
+                    best_fix_similarity = fix_similarity
+                    best_fix_match = (target_cid, target_data['fix'])
+            if best_check_match or best_fix_match:
+                details = []
+                if best_check_match:
+                    target_cid, target_check = best_check_match
+                    details.append(f"Check matched in target {target_cid} (similarity: {best_check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
+                if best_fix_match and (not best_check_match or best_fix_match[0] != best_check_match[0] or best_fix_similarity > best_check_similarity):
+                    target_cid, target_fix = best_fix_match
+                    details.append(f"Fix matched in target {target_cid} (similarity: {best_fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
+                if details:
+                    differences['reassigned'].append({
+                        'control_id': cid,
+                        'nist': base[cid]['nist'],
+                        'change': 'reassigned',
+                        'details': '; '.join(details)
+                    })
+                    continue
+        differences['removed'].append({
+            'control_id': cid,
+            'nist': base[cid]['nist'],
+            'change': 'removed'
+        })
 
     # Added and Reassigned (target to baseline)
     for cid in set(target) - set(base):
         target_check = target[cid]['check']
         target_fix = target[cid]['fix']
-        reassigned = False
         if fuzzy:
-            matches = []
+            best_check_match = None
+            best_fix_match = None
+            best_check_similarity = 0.0
+            best_fix_similarity = 0.0
             for base_cid, base_data in base.items():
                 check_similarity = is_similar(target_check, base_data['check'])
                 fix_similarity = is_similar(target_fix, base_data['fix'])
-                match_details = []
-                if check_similarity >= threshold:
-                    match_details.append(f"Check found in baseline {base_cid} (similarity: {check_similarity:.2f})")
-                if fix_similarity >= threshold:
-                    match_details.append(f"Fix found in baseline {base_cid} (similarity: {fix_similarity:.2f})")
-                if match_details:
-                    matches.append('; '.join(match_details))
-                    reassigned = True
-            if matches:
-                differences['reassigned'].append({
-                    'control_id': cid,
-                    'nist': target[cid]['nist'],
-                    'change': 'reassigned',
-                    'details': '; '.join(matches)
-                })
-        if not reassigned:
-            differences['added'].append({
-                'control_id': cid,
-                'nist': target[cid]['nist'],
-                'change': 'added'
-            })
+                if check_similarity >= threshold and check_similarity > best_check_similarity:
+                    best_check_similarity = check_similarity
+                    best_check_match = (base_cid, base_data['check'])
+                if fix_similarity >= threshold and fix_similarity > best_fix_similarity:
+                    best_fix_similarity = fix_similarity
+                    best_fix_match = (base_cid, base_data['fix'])
+            if best_check_match or best_fix_match:
+                details = []
+                if best_check_match:
+                    base_cid, base_check = best_check_match
+                    details.append(f"Check matched in baseline {base_cid} (similarity: {best_check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
+                if best_fix_match and (not best_check_match or best_fix_match[0] != best_check_match[0] or best_fix_similarity > best_check_similarity):
+                    base_cid, base_fix = best_fix_match
+                    details.append(f"Fix matched in baseline {base_cid} (similarity: {best_fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
+                if details:
+                    differences['reassigned'].append({
+                        'control_id': cid,
+                        'nist': target[cid]['nist'],
+                        'change': 'reassigned',
+                        'details': '; '.join(details)
+                    })
+                    continue
+        differences['added'].append({
+            'control_id': cid,
+            'nist': target[cid]['nist'],
+            'change': 'added'
+        })
     
     # Modified
     for cid in set(base) & set(target):
