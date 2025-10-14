@@ -29,6 +29,8 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     return controls
 
 def is_similar(a: str, b: str) -> float:
+    if not a.strip() or not b.strip():
+        return 0.0
     return SequenceMatcher(None, a, b).ratio()
 
 def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool, threshold: float) -> Dict[str, List[Dict[str, Any]]]:
@@ -43,6 +45,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     for cid in set(base) - set(target):
         base_check = base[cid]['check']
         base_fix = base[cid]['fix']
+        reassigned = False
         if fuzzy:
             best_check_match = None
             best_fix_match = None
@@ -62,27 +65,32 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 if best_check_match:
                     target_cid, target_check = best_check_match
                     details.append(f"Check matched in target {target_cid} (similarity: {best_check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
-                if best_fix_match and (not best_check_match or best_fix_match[0] != best_check_match[0] or best_fix_similarity > best_check_similarity):
+                if best_fix_match:
                     target_cid, target_fix = best_fix_match
                     details.append(f"Fix matched in target {target_cid} (similarity: {best_fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
-                if details:
-                    differences['reassigned'].append({
-                        'control_id': cid,
-                        'nist': base[cid]['nist'],
-                        'change': 'reassigned',
-                        'details': '; '.join(details)
-                    })
-                    continue
-        differences['removed'].append({
-            'control_id': cid,
-            'nist': base[cid]['nist'],
-            'change': 'removed'
-        })
+                differences['reassigned'].append({
+                    'control_id': cid,
+                    'check': base_check,
+                    'fix': base_fix,
+                    'nist': base[cid]['nist'],
+                    'change': 'reassigned',
+                    'details': '; '.join(details)
+                })
+                reassigned = True
+        if not reassigned:
+            differences['removed'].append({
+                'control_id': cid,
+                'check': base_check,
+                'fix': base_fix,
+                'nist': base[cid]['nist'],
+                'change': 'removed'
+            })
 
     # Added and Reassigned (target to baseline)
     for cid in set(target) - set(base):
         target_check = target[cid]['check']
         target_fix = target[cid]['fix']
+        reassigned = False
         if fuzzy:
             best_check_match = None
             best_fix_match = None
@@ -102,22 +110,26 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 if best_check_match:
                     base_cid, base_check = best_check_match
                     details.append(f"Check matched in baseline {base_cid} (similarity: {best_check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
-                if best_fix_match and (not best_check_match or best_fix_match[0] != best_check_match[0] or best_fix_similarity > best_check_similarity):
+                if best_fix_match:
                     base_cid, base_fix = best_fix_match
                     details.append(f"Fix matched in baseline {base_cid} (similarity: {best_fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
-                if details:
-                    differences['reassigned'].append({
-                        'control_id': cid,
-                        'nist': target[cid]['nist'],
-                        'change': 'reassigned',
-                        'details': '; '.join(details)
-                    })
-                    continue
-        differences['added'].append({
-            'control_id': cid,
-            'nist': target[cid]['nist'],
-            'change': 'added'
-        })
+                differences['reassigned'].append({
+                    'control_id': cid,
+                    'check': target_check,
+                    'fix': target_fix,
+                    'nist': target[cid]['nist'],
+                    'change': 'reassigned',
+                    'details': '; '.join(details)
+                })
+                reassigned = True
+        if not reassigned:
+            differences['added'].append({
+                'control_id': cid,
+                'check': target_check,
+                'fix': target_fix,
+                'nist': target[cid]['nist'],
+                'change': 'added'
+            })
     
     # Modified
     for cid in set(base) & set(target):
@@ -150,6 +162,8 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 details.append(f"Target fix: {target_fix}")
             differences['modified'].append({
                 'control_id': cid,
+                'check': target_check,
+                'fix': target_fix,
                 'nist': target[cid]['nist'],
                 'change': 'modified',
                 'details': '; '.join(details)
@@ -172,13 +186,15 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
             for category, items in diffs.items():
                 if items:
                     f.write(f'## {category.capitalize()}\n\n')
-                    f.write('| Control ID | NIST Controls | Details |\n')
-                    f.write('|------------|---------------|---------|\n')
+                    f.write('| Control ID | Check | Fix | NIST Controls | Details |\n')
+                    f.write('|------------|-------|-----|---------------|---------|\n')
                     for item in items:
                         nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
                         details = item.get('details', item['change'])
                         details = details.replace('|', '\\|')
-                        f.write(f'| {item["control_id"]} | {nist_str} | {details} |\n')
+                        check = item.get('check', '').replace('|', '\\|')
+                        fix = item.get('fix', '').replace('|', '\\|')
+                        f.write(f'| {item["control_id"]} | {check} | {fix} | {nist_str} | {details} |\n')
                     f.write('\n')
     except Exception as e:
         raise ValueError(f"Failed to write Markdown output to {output_file}: {str(e)}")
@@ -191,6 +207,8 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                 data.append({
                     'Category': category,
                     'Control ID': item['control_id'],
+                    'Check': item.get('check', ''),
+                    'Fix': item.get('fix', ''),
                     'NIST Controls': ', '.join(item['nist']) if item['nist'] else 'None',
                     'Details': item.get('details', item['change'])
                 })
