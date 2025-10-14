@@ -4,15 +4,22 @@ from difflib import SequenceMatcher
 import pandas as pd
 from typing import Dict, List, Any
 import re
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.WARNING)
 
 def normalize_text(text: str) -> str:
-    """Normalize text for comparison by removing extra spaces and standardizing quotes."""
+    """Normalize text for comparison by removing extra spaces, standardizing quotes, and removing punctuation."""
     if not text:
         return ""
-    # Replace multiple spaces with single space, standardize quotes, and remove escape characters
+    # Remove extra spaces, standardize quotes, remove escape characters and punctuation
     text = re.sub(r'\s+', ' ', text.strip())
-    text = text.replace('\"', '"').replace("'", '"')
-    text = text.replace('\\', '')
+    text = text.replace('\"', '"').replace("'", '"').replace('\\', '')
+    # Remove punctuation except for slashes in paths
+    text = re.sub(r'[^\w\s/]', '', text)
+    # Normalize path separators
+    text = text.replace('/', '')
     return text.lower()
 
 def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
@@ -26,12 +33,18 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     for control in data.get('controls', []):
         control_id = control.get('id')
         if not control_id:
+            logging.warning(f"Control with missing ID in {file_path}")
             continue
+        # Try multiple locations for check and fix
         tags = control.get('tags', {})
-        check = tags.get('check', '') or ''
-        fix = tags.get('fix', '') or ''
-        nist = tags.get('nist', [])
+        check = tags.get('check', '') or control.get('desc', '') or control.get('description', '') or ''
+        fix = tags.get('fix', '') or control.get('fix', '') or tags.get('remediation', '') or ''
+        nist = tags.get('nist', []) or control.get('nist', [])
         nist = [str(n) for n in nist if n is not None] if isinstance(nist, list) else []
+        if not check:
+            logging.warning(f"No check found for control {control_id} in {file_path}")
+        if not fix:
+            logging.warning(f"No fix found for control {control_id} in {file_path}")
         controls[control_id] = {
             'check': check.strip(),
             'fix': fix.strip(),
@@ -42,7 +55,8 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
 def is_similar(a: str, b: str) -> float:
     if not a.strip() or not b.strip():
         return 0.0
-    return SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
+    similarity = SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
+    return similarity
 
 def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool, threshold: float) -> Dict[str, List[Dict[str, Any]]]:
     differences = {
@@ -54,21 +68,27 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
 
     # Removed and Reassigned (baseline to target)
     for cid in set(base) - set(target):
-        base_check = base[cid]['check']
-        base_fix = base[cid]['fix']
+        base_check = base[cid]['check'] or ''
+        base_fix = base[cid]['fix'] or ''
         reassigned = False
         if fuzzy:
             matches = []
             for target_cid, target_data in target.items():
-                check_similarity = is_similar(base_check, target_data['check'])
-                fix_similarity = is_similar(base_fix, target_data['fix'])
+                target_check = target_data['check'] or ''
+                target_fix = target_data['fix'] or ''
+                check_similarity = is_similar(base_check, target_check)
+                fix_similarity = is_similar(base_fix, target_fix)
                 if check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
                     if check_similarity >= threshold:
-                        details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_data['check']}")
+                        details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
                     if fix_similarity >= threshold:
-                        details.append(f"Fix matched in target {target_cid} (similarity: {fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_data['fix']}")
+                        details.append(f"Fix matched in target {target_cid} (similarity: {fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
                     matches.append('; '.join(details))
+                else:
+                    # Log non-matching similarities for debugging
+                    if base_fix and target_fix:
+                        logging.debug(f"No match for {cid} -> {target_cid}: fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
@@ -91,21 +111,27 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
 
     # Added and Reassigned (target to baseline)
     for cid in set(target) - set(base):
-        target_check = target[cid]['check']
-        target_fix = target[cid]['fix']
+        target_check = target[cid]['check'] or ''
+        target_fix = target[cid]['fix'] or ''
         reassigned = False
         if fuzzy:
             matches = []
             for base_cid, base_data in base.items():
-                check_similarity = is_similar(target_check, base_data['check'])
-                fix_similarity = is_similar(target_fix, base_data['fix'])
+                base_check = base_data['check'] or ''
+                base_fix = base_data['fix'] or ''
+                check_similarity = is_similar(target_check, base_check)
+                fix_similarity = is_similar(target_fix, base_fix)
                 if check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
                     if check_similarity >= threshold:
-                        details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_data['check']}")
+                        details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
                     if fix_similarity >= threshold:
-                        details.append(f"Fix matched in baseline {base_cid} (similarity: {fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_data['fix']}")
+                        details.append(f"Fix matched in baseline {base_cid} (similarity: {fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
                     matches.append('; '.join(details))
+                else:
+                    # Log non-matching similarities for debugging
+                    if target_fix and base_fix:
+                        logging.debug(f"No match for {cid} -> {base_cid}: fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
@@ -128,10 +154,10 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     
     # Modified
     for cid in set(base) & set(target):
-        base_check = base[cid]['check']
-        base_fix = base[cid]['fix']
-        target_check = target[cid]['check']
-        target_fix = target[cid]['fix']
+        base_check = base[cid]['check'] or ''
+        base_fix = base[cid]['fix'] or ''
+        target_check = target[cid]['check'] or ''
+        target_fix = target[cid]['fix'] or ''
         
         check_diff = normalize_text(base_check) != normalize_text(target_check)
         fix_diff = normalize_text(base_fix) != normalize_text(target_fix)
@@ -187,8 +213,8 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                         nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
                         details = item.get('details', item['change'])
                         details = details.replace('|', '\\|')
-                        check = item.get('check', '').replace('|', '\\|')
-                        fix = item.get('fix', '').replace('|', '\\|')
+                        check = (item.get('check', '') or '').replace('|', '\\|')
+                        fix = (item.get('fix', '') or '').replace('|', '\\|')
                         f.write(f'| {item["change"]} | {item["control_id"]} | {check} | {fix} | {nist_str} | {details} |\n')
                     f.write('\n')
     except Exception as e:
@@ -202,8 +228,8 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                 data.append({
                     'Category': item['change'],
                     'Control ID': item['control_id'],
-                    'Check': item.get('check', ''),
-                    'Fix': item.get('fix', ''),
+                    'Check': item.get('check', '') or '',
+                    'Fix': item.get('fix', '') or '',
                     'NIST Controls': ', '.join(item['nist']) if item['nist'] else 'None',
                     'Details': item.get('details', item['change'])
                 })
@@ -218,8 +244,8 @@ def main():
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
     parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
                         help='Enable fuzzy matching (True/False, default: False)')
-    parser.add_argument('-s', '--similarity', type=float, default=0.8, 
-                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.8)')
+    parser.add_argument('-s', '--similarity', type=float, default=0.7, 
+                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.7)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
