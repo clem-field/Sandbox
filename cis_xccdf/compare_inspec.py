@@ -28,17 +28,16 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
         }
     return controls
 
-def is_similar(a: str, b: str, threshold: float = 0.9) -> float:
+def is_similar(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
-def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool) -> Dict[str, List[Dict[str, Any]]]:
+def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool, threshold: float) -> Dict[str, List[Dict[str, Any]]]:
     differences = {
         'removed': [],    # in base but not in target
         'added': [],      # in target but not in base
         'modified': [],   # in both but different check/fix
         'reassigned': []  # check/fix matches a different control_id (fuzzy only)
     }
-    threshold = 0.9
 
     # Removed and Reassigned (baseline to target)
     for cid in set(base) - set(target):
@@ -46,23 +45,25 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         base_fix = base[cid]['fix']
         reassigned = False
         if fuzzy:
+            matches = []
             for target_cid, target_data in target.items():
                 check_similarity = is_similar(base_check, target_data['check'])
                 fix_similarity = is_similar(base_fix, target_data['fix'])
-                if check_similarity >= threshold or fix_similarity >= threshold:
-                    details = []
-                    if check_similarity >= threshold:
-                        details.append(f"Check found in target {target_cid} (similarity: {check_similarity:.2f})")
-                    if fix_similarity >= threshold:
-                        details.append(f"Fix found in target {target_cid} (similarity: {fix_similarity:.2f})")
-                    differences['reassigned'].append({
-                        'control_id': cid,
-                        'nist': base[cid]['nist'],
-                        'change': 'reassigned',
-                        'details': '; '.join(details)
-                    })
+                match_details = []
+                if check_similarity >= threshold:
+                    match_details.append(f"Check found in target {target_cid} (similarity: {check_similarity:.2f})")
+                if fix_similarity >= threshold:
+                    match_details.append(f"Fix found in target {target_cid} (similarity: {fix_similarity:.2f})")
+                if match_details:
+                    matches.append('; '.join(match_details))
                     reassigned = True
-                    break
+            if matches:
+                differences['reassigned'].append({
+                    'control_id': cid,
+                    'nist': base[cid]['nist'],
+                    'change': 'reassigned',
+                    'details': '; '.join(matches)
+                })
         if not reassigned:
             differences['removed'].append({
                 'control_id': cid,
@@ -76,23 +77,25 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         target_fix = target[cid]['fix']
         reassigned = False
         if fuzzy:
+            matches = []
             for base_cid, base_data in base.items():
                 check_similarity = is_similar(target_check, base_data['check'])
                 fix_similarity = is_similar(target_fix, base_data['fix'])
-                if check_similarity >= threshold or fix_similarity >= threshold:
-                    details = []
-                    if check_similarity >= threshold:
-                        details.append(f"Check found in baseline {base_cid} (similarity: {check_similarity:.2f})")
-                    if fix_similarity >= threshold:
-                        details.append(f"Fix found in baseline {base_cid} (similarity: {fix_similarity:.2f})")
-                    differences['reassigned'].append({
-                        'control_id': cid,
-                        'nist': target[cid]['nist'],
-                        'change': 'reassigned',
-                        'details': '; '.join(details)
-                    })
+                match_details = []
+                if check_similarity >= threshold:
+                    match_details.append(f"Check found in baseline {base_cid} (similarity: {check_similarity:.2f})")
+                if fix_similarity >= threshold:
+                    match_details.append(f"Fix found in baseline {base_cid} (similarity: {fix_similarity:.2f})")
+                if match_details:
+                    matches.append('; '.join(match_details))
                     reassigned = True
-                    break
+            if matches:
+                differences['reassigned'].append({
+                    'control_id': cid,
+                    'nist': target[cid]['nist'],
+                    'change': 'reassigned',
+                    'details': '; '.join(matches)
+                })
         if not reassigned:
             differences['added'].append({
                 'control_id': cid,
@@ -186,23 +189,29 @@ def main():
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
     parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
                         help='Enable fuzzy matching (True/False, default: False)')
+    parser.add_argument('-s', '--similarity', type=float, default=0.9, 
+                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.9)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
     
     fuzzy = args.fuzzy == 'True'
     
+    # Validate similarity threshold
+    if not 0.0 <= args.similarity <= 1.0:
+        raise ValueError("Similarity threshold must be between 0.0 and 1.0")
+    
     base_controls = load_profile(args.baseline)
     target_controls = load_profile(args.target)
     
-    differences = compare_profiles(base_controls, target_controls, fuzzy)
+    differences = compare_profiles(base_controls, target_controls, fuzzy, args.similarity)
     
     ext = args.output.split('.')[-1].lower()
     if ext == 'json':
         output_to_json(differences, args.output)
     elif ext == 'md':
         output_to_md(differences, args.output)
-    elif ext == 'xlsx': 
+    elif ext == 'xlsx':
         output_to_xlsx(differences, args.output)
     else:
         raise ValueError('Unsupported output format. Use .md, .xlsx, or .json')
