@@ -27,7 +27,7 @@ Output: diagrams/arch.dot with Graphviz syntax.
 python tf_arc_diagram.py terraform.tfstate -o diagrams/arch --format mermaid --source state
 ```
 
-### Containerization 
+### Containerization
 
 ```Docker
 FROM python:3.12-slim
