@@ -35,11 +35,11 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
         if not control_id:
             logging.warning(f"Control with missing ID in {file_path}")
             continue
-        # Try multiple locations for check and fix
+        descriptions = control.get('descriptions', {})
+        check = descriptions.get('check', '') or control.get('desc', '') or control.get('description', '') or ''
+        fix = descriptions.get('fix', '') or control.get('fix', '') or descriptions.get('remediation', '') or ''
         tags = control.get('tags', {})
-        check = tags.get('check', '') or control.get('desc', '') or control.get('description', '') or ''
-        fix = tags.get('fix', '') or control.get('fix', '') or tags.get('remediation', '') or ''
-        nist = tags.get('nist', []) or control.get('nist', [])
+        nist = tags.get('nist', [])
         nist = [str(n) for n in nist if n is not None] if isinstance(nist, list) else []
         if not check:
             logging.warning(f"No check found for control {control_id} in {file_path}")
