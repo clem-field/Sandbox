@@ -36,17 +36,16 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         'removed': [],    # in base but not in target
         'added': [],      # in target but not in base
         'modified': [],   # in both but different check/fix
-        'reassigned': []  # check/fix matches a different control_id in target (fuzzy only)
+        'reassigned': []  # check/fix matches a different control_id (fuzzy only)
     }
     threshold = 0.9
 
-    # Removed and Reassigned
+    # Removed and Reassigned (baseline to target)
     for cid in set(base) - set(target):
         base_check = base[cid]['check']
         base_fix = base[cid]['fix']
         reassigned = False
         if fuzzy:
-            # Check if baseline check/fix appears in any target control
             for target_cid, target_data in target.items():
                 check_similarity = is_similar(base_check, target_data['check'])
                 fix_similarity = is_similar(base_fix, target_data['fix'])
@@ -70,14 +69,36 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'nist': base[cid]['nist'],
                 'change': 'removed'
             })
-    
-    # Added
+
+    # Added and Reassigned (target to baseline)
     for cid in set(target) - set(base):
-        differences['added'].append({
-            'control_id': cid,
-            'nist': target[cid]['nist'],
-            'change': 'added'
-        })
+        target_check = target[cid]['check']
+        target_fix = target[cid]['fix']
+        reassigned = False
+        if fuzzy:
+            for base_cid, base_data in base.items():
+                check_similarity = is_similar(target_check, base_data['check'])
+                fix_similarity = is_similar(target_fix, base_data['fix'])
+                if check_similarity >= threshold or fix_similarity >= threshold:
+                    details = []
+                    if check_similarity >= threshold:
+                        details.append(f"Check found in baseline {base_cid} (similarity: {check_similarity:.2f})")
+                    if fix_similarity >= threshold:
+                        details.append(f"Fix found in baseline {base_cid} (similarity: {fix_similarity:.2f})")
+                    differences['reassigned'].append({
+                        'control_id': cid,
+                        'nist': target[cid]['nist'],
+                        'change': 'reassigned',
+                        'details': '; '.join(details)
+                    })
+                    reassigned = True
+                    break
+        if not reassigned:
+            differences['added'].append({
+                'control_id': cid,
+                'nist': target[cid]['nist'],
+                'change': 'added'
+            })
     
     # Modified
     for cid in set(base) & set(target):
@@ -181,7 +202,7 @@ def main():
         output_to_json(differences, args.output)
     elif ext == 'md':
         output_to_md(differences, args.output)
-    elif ext == 'xlsx':
+    elif ext == 'xlsx': 
         output_to_xlsx(differences, args.output)
     else:
         raise ValueError('Unsupported output format. Use .md, .xlsx, or .json')
