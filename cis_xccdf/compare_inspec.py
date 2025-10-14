@@ -3,6 +3,17 @@ import argparse
 from difflib import SequenceMatcher
 import pandas as pd
 from typing import Dict, List, Any
+import re
+
+def normalize_text(text: str) -> str:
+    """Normalize text for comparison by removing extra spaces and standardizing quotes."""
+    if not text:
+        return ""
+    # Replace multiple spaces with single space, standardize quotes, and remove escape characters
+    text = re.sub(r'\s+', ' ', text.strip())
+    text = text.replace('\"', '"').replace("'", '"')
+    text = text.replace('\\', '')
+    return text.lower()
 
 def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     try:
@@ -31,7 +42,7 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
 def is_similar(a: str, b: str) -> float:
     if not a.strip() or not b.strip():
         return 0.0
-    return SequenceMatcher(None, a, b).ratio()
+    return SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
 
 def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool, threshold: float) -> Dict[str, List[Dict[str, Any]]]:
     differences = {
@@ -122,8 +133,8 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         target_check = target[cid]['check']
         target_fix = target[cid]['fix']
         
-        check_diff = base_check != target_check
-        fix_diff = base_fix != target_fix
+        check_diff = normalize_text(base_check) != normalize_text(target_check)
+        fix_diff = normalize_text(base_fix) != normalize_text(target_fix)
         
         if fuzzy:
             check_similarity = is_similar(base_check, target_check)
@@ -207,8 +218,8 @@ def main():
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
     parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
                         help='Enable fuzzy matching (True/False, default: False)')
-    parser.add_argument('-s', '--similarity', type=float, default=0.9, 
-                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.9)')
+    parser.add_argument('-s', '--similarity', type=float, default=0.8, 
+                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.8)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
