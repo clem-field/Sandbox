@@ -47,34 +47,25 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         base_fix = base[cid]['fix']
         reassigned = False
         if fuzzy:
-            best_check_match = None
-            best_fix_match = None
-            best_check_similarity = 0.0
-            best_fix_similarity = 0.0
+            matches = []
             for target_cid, target_data in target.items():
                 check_similarity = is_similar(base_check, target_data['check'])
                 fix_similarity = is_similar(base_fix, target_data['fix'])
-                if check_similarity >= threshold and check_similarity > best_check_similarity:
-                    best_check_similarity = check_similarity
-                    best_check_match = (target_cid, target_data['check'])
-                if fix_similarity >= threshold and fix_similarity > best_fix_similarity:
-                    best_fix_similarity = fix_similarity
-                    best_fix_match = (target_cid, target_data['fix'])
-            if best_check_match or best_fix_match:
-                details = []
-                if best_check_match:
-                    target_cid, target_check = best_check_match
-                    details.append(f"Check matched in target {target_cid} (similarity: {best_check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
-                if best_fix_match:
-                    target_cid, target_fix = best_fix_match
-                    details.append(f"Fix matched in target {target_cid} (similarity: {best_fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
+                if check_similarity >= threshold or fix_similarity >= threshold:
+                    details = []
+                    if check_similarity >= threshold:
+                        details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_data['check']}")
+                    if fix_similarity >= threshold:
+                        details.append(f"Fix matched in target {target_cid} (similarity: {fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_data['fix']}")
+                    matches.append('; '.join(details))
+            if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
                     'check': base_check,
                     'fix': base_fix,
                     'nist': base[cid]['nist'],
                     'change': 'reassigned',
-                    'details': '; '.join(details)
+                    'details': '; '.join(matches)
                 })
                 reassigned = True
         if not reassigned:
@@ -83,7 +74,8 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'check': base_check,
                 'fix': base_fix,
                 'nist': base[cid]['nist'],
-                'change': 'removed'
+                'change': 'removed',
+                'details': 'No matching control found in target'
             })
 
     # Added and Reassigned (target to baseline)
@@ -92,34 +84,25 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         target_fix = target[cid]['fix']
         reassigned = False
         if fuzzy:
-            best_check_match = None
-            best_fix_match = None
-            best_check_similarity = 0.0
-            best_fix_similarity = 0.0
+            matches = []
             for base_cid, base_data in base.items():
                 check_similarity = is_similar(target_check, base_data['check'])
                 fix_similarity = is_similar(target_fix, base_data['fix'])
-                if check_similarity >= threshold and check_similarity > best_check_similarity:
-                    best_check_similarity = check_similarity
-                    best_check_match = (base_cid, base_data['check'])
-                if fix_similarity >= threshold and fix_similarity > best_fix_similarity:
-                    best_fix_similarity = fix_similarity
-                    best_fix_match = (base_cid, base_data['fix'])
-            if best_check_match or best_fix_match:
-                details = []
-                if best_check_match:
-                    base_cid, base_check = best_check_match
-                    details.append(f"Check matched in baseline {base_cid} (similarity: {best_check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
-                if best_fix_match:
-                    base_cid, base_fix = best_fix_match
-                    details.append(f"Fix matched in baseline {base_cid} (similarity: {best_fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
+                if check_similarity >= threshold or fix_similarity >= threshold:
+                    details = []
+                    if check_similarity >= threshold:
+                        details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_data['check']}")
+                    if fix_similarity >= threshold:
+                        details.append(f"Fix matched in baseline {base_cid} (similarity: {fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_data['fix']}")
+                    matches.append('; '.join(details))
+            if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
                     'check': target_check,
                     'fix': target_fix,
                     'nist': target[cid]['nist'],
                     'change': 'reassigned',
-                    'details': '; '.join(details)
+                    'details': '; '.join(matches)
                 })
                 reassigned = True
         if not reassigned:
@@ -128,7 +111,8 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'check': target_check,
                 'fix': target_fix,
                 'nist': target[cid]['nist'],
-                'change': 'added'
+                'change': 'added',
+                'details': 'No matching control found in baseline'
             })
     
     # Modified
@@ -186,15 +170,15 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
             for category, items in diffs.items():
                 if items:
                     f.write(f'## {category.capitalize()}\n\n')
-                    f.write('| Control ID | Check | Fix | NIST Controls | Details |\n')
-                    f.write('|------------|-------|-----|---------------|---------|\n')
+                    f.write('| Category | Control ID | Check | Fix | NIST Controls | Details |\n')
+                    f.write('|----------|------------|-------|-----|---------------|---------|\n')
                     for item in items:
                         nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
                         details = item.get('details', item['change'])
                         details = details.replace('|', '\\|')
                         check = item.get('check', '').replace('|', '\\|')
                         fix = item.get('fix', '').replace('|', '\\|')
-                        f.write(f'| {item["control_id"]} | {check} | {fix} | {nist_str} | {details} |\n')
+                        f.write(f'| {item["change"]} | {item["control_id"]} | {check} | {fix} | {nist_str} | {details} |\n')
                     f.write('\n')
     except Exception as e:
         raise ValueError(f"Failed to write Markdown output to {output_file}: {str(e)}")
@@ -205,7 +189,7 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
         for category, items in diffs.items():
             for item in items:
                 data.append({
-                    'Category': category,
+                    'Category': item['change'],
                     'Control ID': item['control_id'],
                     'Check': item.get('check', ''),
                     'Fix': item.get('fix', ''),
