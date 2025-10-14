@@ -15,12 +15,11 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     for control in data.get('controls', []):
         control_id = control.get('id')
         if not control_id:
-            continue  # Skip controls without an ID
+            continue
         tags = control.get('tags', {})
         check = tags.get('check', '') or ''
         fix = tags.get('fix', '') or ''
         nist = tags.get('nist', [])
-        # Ensure nist is a list of strings, filter out None or non-string values
         nist = [str(n) for n in nist if n is not None] if isinstance(nist, list) else []
         controls[control_id] = {
             'check': check.strip(),
@@ -29,23 +28,48 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
         }
     return controls
 
-def is_similar(a: str, b: str, threshold: float = 0.9) -> bool:
-    return SequenceMatcher(None, a, b).ratio() >= threshold
+def is_similar(a: str, b: str, threshold: float = 0.9) -> float:
+    return SequenceMatcher(None, a, b).ratio()
 
 def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool) -> Dict[str, List[Dict[str, Any]]]:
     differences = {
-        'removed': [],  # in base but not in target
-        'added': [],    # in target but not in base
-        'modified': []  # in both but different check/fix
+        'removed': [],    # in base but not in target
+        'added': [],      # in target but not in base
+        'modified': [],   # in both but different check/fix
+        'reassigned': []  # check/fix matches a different control_id in target (fuzzy only)
     }
-    
-    # Removed
+    threshold = 0.9
+
+    # Removed and Reassigned
     for cid in set(base) - set(target):
-        differences['removed'].append({
-            'control_id': cid,
-            'nist': base[cid]['nist'],
-            'change': 'removed'
-        })
+        base_check = base[cid]['check']
+        base_fix = base[cid]['fix']
+        reassigned = False
+        if fuzzy:
+            # Check if baseline check/fix appears in any target control
+            for target_cid, target_data in target.items():
+                check_similarity = is_similar(base_check, target_data['check'])
+                fix_similarity = is_similar(base_fix, target_data['fix'])
+                if check_similarity >= threshold or fix_similarity >= threshold:
+                    details = []
+                    if check_similarity >= threshold:
+                        details.append(f"Check found in target {target_cid} (similarity: {check_similarity:.2f})")
+                    if fix_similarity >= threshold:
+                        details.append(f"Fix found in target {target_cid} (similarity: {fix_similarity:.2f})")
+                    differences['reassigned'].append({
+                        'control_id': cid,
+                        'nist': base[cid]['nist'],
+                        'change': 'reassigned',
+                        'details': '; '.join(details)
+                    })
+                    reassigned = True
+                    break
+        if not reassigned:
+            differences['removed'].append({
+                'control_id': cid,
+                'nist': base[cid]['nist'],
+                'change': 'removed'
+            })
     
     # Added
     for cid in set(target) - set(base):
@@ -62,20 +86,33 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         target_check = target[cid]['check']
         target_fix = target[cid]['fix']
         
-        check_diff = not (base_check == target_check or (fuzzy and is_similar(base_check, target_check)))
-        fix_diff = not (base_fix == target_fix or (fuzzy and is_similar(base_fix, target_fix)))
+        check_diff = base_check != target_check
+        fix_diff = base_fix != target_fix
+        
+        if fuzzy:
+            check_similarity = is_similar(base_check, target_check)
+            fix_similarity = is_similar(base_fix, target_fix)
+            check_diff = check_diff and check_similarity < threshold
+            fix_diff = fix_diff and fix_similarity < threshold
+        else:
+            check_similarity = None
+            fix_similarity = None
         
         if check_diff or fix_diff:
-            changes = []
+            details = []
             if check_diff:
-                changes.append('check')
+                details.append(f"Check differs (similarity: {check_similarity:.2f})" if fuzzy else "Check differs")
+                details.append(f"Baseline check: {base_check}")
+                details.append(f"Target check: {target_check}")
             if fix_diff:
-                changes.append('fix')
+                details.append(f"Fix differs (similarity: {fix_similarity:.2f})" if fuzzy else "Fix differs")
+                details.append(f"Baseline fix: {base_fix}")
+                details.append(f"Target fix: {target_fix}")
             differences['modified'].append({
                 'control_id': cid,
-                'nist': target[cid]['nist'],  # or base, assuming same
+                'nist': target[cid]['nist'],
                 'change': 'modified',
-                'details': ', '.join(changes)
+                'details': '; '.join(details)
             })
     
     return differences
@@ -100,6 +137,7 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                     for item in items:
                         nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
                         details = item.get('details', item['change'])
+                        details = details.replace('|', '\\|')
                         f.write(f'| {item["control_id"]} | {nist_str} | {details} |\n')
                     f.write('\n')
     except Exception as e:
@@ -131,7 +169,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Convert fuzzy argument to boolean
     fuzzy = args.fuzzy == 'True'
     
     base_controls = load_profile(args.baseline)
