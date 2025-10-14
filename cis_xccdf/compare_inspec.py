@@ -5,15 +5,23 @@ import pandas as pd
 from typing import Dict, List, Any
 
 def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
-    with open(file_path, 'r') as f:
-        data = json.load(f)
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+    except Exception as e:
+        raise ValueError(f"Failed to load JSON file {file_path}: {str(e)}")
+    
     controls = {}
     for control in data.get('controls', []):
         control_id = control.get('id')
+        if not control_id:
+            continue  # Skip controls without an ID
         tags = control.get('tags', {})
-        check = tags.get('check', '')
-        fix = tags.get('fix', '')
+        check = tags.get('check', '') or ''
+        fix = tags.get('fix', '') or ''
         nist = tags.get('nist', [])
+        # Ensure nist is a list of strings, filter out None or non-string values
+        nist = [str(n) for n in nist if n is not None] if isinstance(nist, list) else []
         controls[control_id] = {
             'check': check.strip(),
             'fix': fix.strip(),
@@ -73,50 +81,63 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     return differences
 
 def output_to_json(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
-    with open(output_file, 'w') as f:
-        json.dump(diffs, f, indent=4)
+    try:
+        with open(output_file, 'w') as f:
+            json.dump(diffs, f, indent=4)
+    except Exception as e:
+        raise ValueError(f"Failed to write JSON output to {output_file}: {str(e)}")
 
 def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
-    with open(output_file, 'w') as f:
-        f.write('# InSpec Profile Differences\n\n')
-        
-        for category, items in diffs.items():
-            if items:
-                f.write(f'## {category.capitalize()}\n\n')
-                f.write('| Control ID | NIST Controls | Details |\n')
-                f.write('|------------|---------------|---------|\n')
-                for item in items:
-                    nist_str = ', '.join(item['nist'])
-                    details = item.get('details', item['change'])
-                    f.write(f'| {item["control_id"]} | {nist_str} | {details} |\n')
-                f.write('\n')
+    try:
+        with open(output_file, 'w') as f:
+            f.write('# InSpec Profile Differences\n\n')
+            
+            for category, items in diffs.items():
+                if items:
+                    f.write(f'## {category.capitalize()}\n\n')
+                    f.write('| Control ID | NIST Controls | Details |\n')
+                    f.write('|------------|---------------|---------|\n')
+                    for item in items:
+                        nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
+                        details = item.get('details', item['change'])
+                        f.write(f'| {item["control_id"]} | {nist_str} | {details} |\n')
+                    f.write('\n')
+    except Exception as e:
+        raise ValueError(f"Failed to write Markdown output to {output_file}: {str(e)}")
 
 def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
-    data = []
-    for category, items in diffs.items():
-        for item in items:
-            data.append({
-                'Category': category,
-                'Control ID': item['control_id'],
-                'NIST Controls': ', '.join(item['nist']),
-                'Details': item.get('details', item['change'])
-            })
-    df = pd.DataFrame(data)
-    df.to_excel(output_file, index=False)
+    try:
+        data = []
+        for category, items in diffs.items():
+            for item in items:
+                data.append({
+                    'Category': category,
+                    'Control ID': item['control_id'],
+                    'NIST Controls': ', '.join(item['nist']) if item['nist'] else 'None',
+                    'Details': item.get('details', item['change'])
+                })
+        df = pd.DataFrame(data)
+        df.to_excel(output_file, index=False)
+    except Exception as e:
+        raise ValueError(f"Failed to write Excel output to {output_file}: {str(e)}")
 
 def main():
     parser = argparse.ArgumentParser(description='Compare two InSpec Profile JSON files.')
     parser.add_argument('-b', '--baseline', required=True, help='Path to baseline JSON file')
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
-    parser.add_argument('-f', '--fuzzy', action='store_true', help='Enable fuzzy matching')
+    parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
+                        help='Enable fuzzy matching (True/False, default: False)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
     
+    # Convert fuzzy argument to boolean
+    fuzzy = args.fuzzy == 'True'
+    
     base_controls = load_profile(args.baseline)
     target_controls = load_profile(args.target)
     
-    differences = compare_profiles(base_controls, target_controls, args.fuzzy)
+    differences = compare_profiles(base_controls, target_controls, fuzzy)
     
     ext = args.output.split('.')[-1].lower()
     if ext == 'json':
@@ -129,4 +150,7 @@ def main():
         raise ValueError('Unsupported output format. Use .md, .xlsx, or .json')
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"Error: {str(e)}")
