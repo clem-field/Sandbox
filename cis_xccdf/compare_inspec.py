@@ -1,6 +1,5 @@
 import json
 import argparse
-from difflib import SequenceMatcher
 import pandas as pd
 import re
 import logging
@@ -27,7 +26,7 @@ def is_similar(a: str, b: str, field: str = 'unknown') -> float:
     
     # Key terms to weight higher (e.g., mount options, paths)
     key_terms = {'nosuid', 'nodev', 'noexec', '/etc/fstab', '/dev/shm', '/var/tmp', '/tmp', '/var'}
-    weight_factor = 2.0  # Weight for key terms
+    weight_factor = 3.0  # Increased weight for key terms
     
     # Normalize and split into tokens
     a_tokens = normalize_text(a).split()
@@ -115,8 +114,8 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(base_title, target_title, 'title')
                 check_similarity = is_similar(base_check, target_check, 'check')
                 fix_similarity = is_similar(base_fix, target_fix, 'fix')
-                adjusted_threshold = 0.5 if 'title' in [base_title, target_title] else threshold
-                check_fix_threshold = 0.5  # Lower threshold for check/fix
+                adjusted_threshold = 0.4 if 'title' in [base_title, target_title] else threshold
+                check_fix_threshold = 0.5  # Keep check/fix at 0.5
                 if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
                     if title_similarity >= adjusted_threshold:
@@ -164,7 +163,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(target_title, base_title, 'title')
                 check_similarity = is_similar(target_check, base_check, 'check')
                 fix_similarity = is_similar(target_fix, base_fix, 'fix')
-                adjusted_threshold = 0.5 if 'title' in [target_title, base_title] else threshold
+                adjusted_threshold = 0.4 if 'title' in [target_title, base_title] else threshold
                 check_fix_threshold = 0.5
                 if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
@@ -215,7 +214,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
             title_similarity = is_similar(base_title, target_title, 'title')
             check_similarity = is_similar(base_check, target_check, 'check')
             fix_similarity = is_similar(base_fix, target_fix, 'fix')
-            title_diff = title_diff and title_similarity < 0.5
+            title_diff = title_diff and title_similarity < 0.4
             check_diff = check_diff and check_similarity < 0.5
             fix_diff = fix_diff and fix_similarity < 0.5
         else:
