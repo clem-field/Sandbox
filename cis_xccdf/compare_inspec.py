@@ -248,6 +248,12 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
             })
     print(f"✅ Found {len(differences['modified'])} modified controls")
 
+    # Sort differences by control_id
+    print("📑 Sorting differences by control ID...")
+    for category in differences:
+        differences[category].sort(key=lambda x: x['control_id'])
+    print("✅ Sorting completed")
+
     return differences
 
 def output_to_json(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
@@ -298,6 +304,8 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                     'Details': item.get('details', item['change'])
                 })
         df = pd.DataFrame(data)
+        # Sort DataFrame by Control ID
+        df = df.sort_values(by='Control ID')
         df.to_excel(output_file, index=False)
         print(f"✅ Excel output written to {output_file}")
     except Exception as e:
