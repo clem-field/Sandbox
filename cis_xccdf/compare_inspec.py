@@ -10,13 +10,14 @@ from collections import Counter
 logging.basicConfig(level=logging.WARNING)
 
 def normalize_text(text: str) -> str:
-    """Normalize text for comparison, preserving path separators and quotes."""
+    """Normalize text for comparison, preserving path separators and quotes, but removing other punctuation."""
     if not text:
         return ""
     # Remove extra spaces, standardize quotes
     text = re.sub(r'\s+', ' ', text.strip())
     text = text.replace('\"', '"').replace("'", '"')
-    # Preserve path separators and quoted terms
+    # Remove punctuation except for words, spaces, and /
+    text = re.sub(r'[^\w\s/]', '', text)
     return text.lower()
 
 def is_similar(a: str, b: str, field: str = 'unknown') -> float:
@@ -24,8 +25,8 @@ def is_similar(a: str, b: str, field: str = 'unknown') -> float:
     if not a.strip() or not b.strip():
         return 0.0
     
-    # Key terms to weight higher (e.g., mount options, paths)
-    key_terms = {'nosuid', 'nodev', 'noexec', '/etc/fstab', '/dev/shm', '/var/tmp', '/tmp', '/var'}
+    # Expanded key terms to weight higher (added common InSpec/STIG phrases)
+    key_terms = {'nosuid', 'nodev', 'noexec', '/etc/fstab', '/dev/shm', '/var/tmp', '/tmp', '/var', 'partition', 'mount', 'fstab', 'remount', 'defaults', 'relatime'}
     weight_factor = 3.0  # Increased weight for key terms
     
     # Normalize and split into tokens
@@ -99,6 +100,10 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         'reassigned': []  # title/check/fix matches a different control_id (fuzzy only)
     }
 
+    # Field-specific thresholds (lenient for short titles, stricter for longer check/fix)
+    title_threshold = 0.4
+    check_fix_threshold = 0.5
+
     print("🔍 Checking for Removed and Reassigned controls...")
     for cid in set(base) - set(target):
         base_check = base[cid]['check'] or ''
@@ -114,11 +119,9 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(base_title, target_title, 'title')
                 check_similarity = is_similar(base_check, target_check, 'check')
                 fix_similarity = is_similar(base_fix, target_fix, 'fix')
-                adjusted_threshold = 0.4 if 'title' in [base_title, target_title] else threshold
-                check_fix_threshold = 0.5  # Keep check/fix at 0.5
-                if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
+                if title_similarity >= title_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
-                    if title_similarity >= adjusted_threshold:
+                    if title_similarity >= title_threshold:
                         details.append(f"Title matched in target {target_cid} (similarity: {title_similarity:.2f}); Baseline title: {base_title}; Target title: {target_title}")
                     if check_similarity >= check_fix_threshold:
                         details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
@@ -163,11 +166,9 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(target_title, base_title, 'title')
                 check_similarity = is_similar(target_check, base_check, 'check')
                 fix_similarity = is_similar(target_fix, base_fix, 'fix')
-                adjusted_threshold = 0.4 if 'title' in [target_title, base_title] else threshold
-                check_fix_threshold = 0.5
-                if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
+                if title_similarity >= title_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
-                    if title_similarity >= adjusted_threshold:
+                    if title_similarity >= title_threshold:
                         details.append(f"Title matched in baseline {base_cid} (similarity: {title_similarity:.2f}); Target title: {target_title}; Baseline title: {base_title}")
                     if check_similarity >= check_fix_threshold:
                         details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
@@ -316,8 +317,8 @@ def main():
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
     parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
                         help='Enable fuzzy matching (True/False, default: False)')
-    parser.add_argument('-s', '--similarity', type=float, default=0.5, 
-                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.5)')
+    parser.add_argument('-s', '--similarity', type=float, default=0.4, 
+                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.4)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
