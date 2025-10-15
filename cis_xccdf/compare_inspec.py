@@ -2,9 +2,9 @@ import json
 import argparse
 from difflib import SequenceMatcher
 import pandas as pd
-from typing import Dict, List, Any
 import re
 import logging
+from typing import Dict, List, Any
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
@@ -38,6 +38,7 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
         descriptions = control.get('descriptions', {})
         check = descriptions.get('check', '') or control.get('desc', '') or control.get('description', '') or ''
         fix = descriptions.get('fix', '') or control.get('fix', '') or descriptions.get('remediation', '') or ''
+        title = control.get('title', '') or ''
         tags = control.get('tags', {})
         nist = tags.get('nist', [])
         nist = [str(n) for n in nist if n is not None] if isinstance(nist, list) else []
@@ -45,9 +46,12 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
             logging.warning(f"No check found for control {control_id} in {file_path}")
         if not fix:
             logging.warning(f"No fix found for control {control_id} in {file_path}")
+        if not title:
+            logging.warning(f"No title found for control {control_id} in {file_path}")
         controls[control_id] = {
             'check': check.strip(),
             'fix': fix.strip(),
+            'title': title.strip(),
             'nist': nist
         }
     return controls
@@ -62,36 +66,41 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     differences = {
         'removed': [],    # in base but not in target
         'added': [],      # in target but not in base
-        'modified': [],   # in both but different check/fix
-        'reassigned': []  # check/fix matches a different control_id (fuzzy only)
+        'modified': [],   # in both but different title/check/fix
+        'reassigned': []  # title/check/fix matches a different control_id (fuzzy only)
     }
 
     # Removed and Reassigned (baseline to target)
     for cid in set(base) - set(target):
         base_check = base[cid]['check'] or ''
         base_fix = base[cid]['fix'] or ''
+        base_title = base[cid]['title'] or ''
         reassigned = False
         if fuzzy:
             matches = []
             for target_cid, target_data in target.items():
                 target_check = target_data['check'] or ''
                 target_fix = target_data['fix'] or ''
+                target_title = target_data['title'] or ''
+                title_similarity = is_similar(base_title, target_title)
                 check_similarity = is_similar(base_check, target_check)
                 fix_similarity = is_similar(base_fix, target_fix)
-                if check_similarity >= threshold or fix_similarity >= threshold:
+                if title_similarity >= threshold or check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
+                    if title_similarity >= threshold:
+                        details.append(f"Title matched in target {target_cid} (similarity: {title_similarity:.2f}); Baseline title: {base_title}; Target title: {target_title}")
                     if check_similarity >= threshold:
                         details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
                     if fix_similarity >= threshold:
                         details.append(f"Fix matched in target {target_cid} (similarity: {fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
                     matches.append('; '.join(details))
                 else:
-                    # Log non-matching similarities for debugging
                     if base_fix and target_fix:
-                        logging.debug(f"No match for {cid} -> {target_cid}: fix similarity={fix_similarity:.2f}, threshold={threshold}")
+                        logging.debug(f"No match for {cid} -> {target_cid}: title similarity={title_similarity:.2f}, check similarity={check_similarity:.2f}, fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
+                    'title': base_title,
                     'check': base_check,
                     'fix': base_fix,
                     'nist': base[cid]['nist'],
@@ -102,6 +111,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         if not reassigned:
             differences['removed'].append({
                 'control_id': cid,
+                'title': base_title,
                 'check': base_check,
                 'fix': base_fix,
                 'nist': base[cid]['nist'],
@@ -113,28 +123,33 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     for cid in set(target) - set(base):
         target_check = target[cid]['check'] or ''
         target_fix = target[cid]['fix'] or ''
+        target_title = target[cid]['title'] or ''
         reassigned = False
         if fuzzy:
             matches = []
             for base_cid, base_data in base.items():
                 base_check = base_data['check'] or ''
                 base_fix = base_data['fix'] or ''
+                base_title = base_data['title'] or ''
+                title_similarity = is_similar(target_title, base_title)
                 check_similarity = is_similar(target_check, base_check)
                 fix_similarity = is_similar(target_fix, base_fix)
-                if check_similarity >= threshold or fix_similarity >= threshold:
+                if title_similarity >= threshold or check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
+                    if title_similarity >= threshold:
+                        details.append(f"Title matched in baseline {base_cid} (similarity: {title_similarity:.2f}); Target title: {target_title}; Baseline title: {base_title}")
                     if check_similarity >= threshold:
                         details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
                     if fix_similarity >= threshold:
                         details.append(f"Fix matched in baseline {base_cid} (similarity: {fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
                     matches.append('; '.join(details))
                 else:
-                    # Log non-matching similarities for debugging
                     if target_fix and base_fix:
-                        logging.debug(f"No match for {cid} -> {base_cid}: fix similarity={fix_similarity:.2f}, threshold={threshold}")
+                        logging.debug(f"No match for {cid} -> {base_cid}: title similarity={title_similarity:.2f}, check similarity={check_similarity:.2f}, fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
+                    'title': target_title,
                     'check': target_check,
                     'fix': target_fix,
                     'nist': target[cid]['nist'],
@@ -145,6 +160,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         if not reassigned:
             differences['added'].append({
                 'control_id': cid,
+                'title': target_title,
                 'check': target_check,
                 'fix': target_fix,
                 'nist': target[cid]['nist'],
@@ -156,23 +172,33 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
     for cid in set(base) & set(target):
         base_check = base[cid]['check'] or ''
         base_fix = base[cid]['fix'] or ''
+        base_title = base[cid]['title'] or ''
         target_check = target[cid]['check'] or ''
         target_fix = target[cid]['fix'] or ''
+        target_title = target[cid]['title'] or ''
         
+        title_diff = normalize_text(base_title) != normalize_text(target_title)
         check_diff = normalize_text(base_check) != normalize_text(target_check)
         fix_diff = normalize_text(base_fix) != normalize_text(target_fix)
         
         if fuzzy:
+            title_similarity = is_similar(base_title, target_title)
             check_similarity = is_similar(base_check, target_check)
             fix_similarity = is_similar(base_fix, target_fix)
+            title_diff = title_diff and title_similarity < threshold
             check_diff = check_diff and check_similarity < threshold
             fix_diff = fix_diff and fix_similarity < threshold
         else:
+            title_similarity = None
             check_similarity = None
             fix_similarity = None
         
-        if check_diff or fix_diff:
+        if title_diff or check_diff or fix_diff:
             details = []
+            if title_diff:
+                details.append(f"Title differs (similarity: {title_similarity:.2f})" if fuzzy else "Title differs")
+                details.append(f"Baseline title: {base_title}")
+                details.append(f"Target title: {target_title}")
             if check_diff:
                 details.append(f"Check differs (similarity: {check_similarity:.2f})" if fuzzy else "Check differs")
                 details.append(f"Baseline check: {base_check}")
@@ -183,6 +209,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 details.append(f"Target fix: {target_fix}")
             differences['modified'].append({
                 'control_id': cid,
+                'title': target_title,
                 'check': target_check,
                 'fix': target_fix,
                 'nist': target[cid]['nist'],
@@ -207,15 +234,15 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
             for category, items in diffs.items():
                 if items:
                     f.write(f'## {category.capitalize()}\n\n')
-                    f.write('| Category | Control ID | Check | Fix | NIST Controls | Details |\n')
-                    f.write('|----------|------------|-------|-----|---------------|---------|\n')
+                    f.write('| Category | Control ID | Title | Check | Fix | NIST Controls | Details |\n')
+                    f.write('|----------|------------|-------|-------|-----|---------------|---------|\n')
                     for item in items:
                         nist_str = ', '.join(item['nist']) if item['nist'] else 'None'
-                        details = item.get('details', item['change'])
-                        details = details.replace('|', '\\|')
+                        details = item.get('details', item['change']).replace('|', '\\|')
+                        title = (item.get('title', '') or '').replace('|', '\\|')
                         check = (item.get('check', '') or '').replace('|', '\\|')
                         fix = (item.get('fix', '') or '').replace('|', '\\|')
-                        f.write(f'| {item["change"]} | {item["control_id"]} | {check} | {fix} | {nist_str} | {details} |\n')
+                        f.write(f'| {item["change"]} | {item["control_id"]} | {title} | {check} | {fix} | {nist_str} | {details} |\n')
                     f.write('\n')
     except Exception as e:
         raise ValueError(f"Failed to write Markdown output to {output_file}: {str(e)}")
@@ -228,6 +255,7 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                 data.append({
                     'Category': item['change'],
                     'Control ID': item['control_id'],
+                    'Title': item.get('title', '') or '',
                     'Check': item.get('check', '') or '',
                     'Fix': item.get('fix', '') or '',
                     'NIST Controls': ', '.join(item['nist']) if item['nist'] else 'None',
