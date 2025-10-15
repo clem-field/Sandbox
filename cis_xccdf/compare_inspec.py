@@ -5,22 +5,50 @@ import pandas as pd
 import re
 import logging
 from typing import Dict, List, Any
+from collections import Counter
 
 # Set up logging
 logging.basicConfig(level=logging.WARNING)
 
 def normalize_text(text: str) -> str:
-    """Normalize text for comparison by removing extra spaces, standardizing quotes, and removing punctuation."""
+    """Normalize text for comparison, preserving path separators and key terms."""
     if not text:
         return ""
-    # Remove extra spaces, standardize quotes, remove escape characters and punctuation
+    # Remove extra spaces, standardize quotes
     text = re.sub(r'\s+', ' ', text.strip())
     text = text.replace('\"', '"').replace("'", '"').replace('\\', '')
-    # Remove punctuation except for slashes in paths
+    # Preserve path separators and specific punctuation (e.g., /)
+    # Remove other punctuation except for slashes in paths
     text = re.sub(r'[^\w\s/]', '', text)
-    # Normalize path separators
-    text = text.replace('/', '')
     return text.lower()
+
+def is_similar(a: str, b: str, field: str = 'unknown') -> float:
+    """Compute token-based similarity between two strings."""
+    if not a.strip() or not b.strip():
+        return 0.0
+    
+    # Normalize and split into tokens
+    a_tokens = normalize_text(a).split()
+    b_tokens = normalize_text(b).split()
+    
+    # If either is empty after normalization
+    if not a_tokens or not b_tokens:
+        return 0.0
+    
+    # Compute token overlap using Counter
+    a_counter = Counter(a_tokens)
+    b_counter = Counter(b_tokens)
+    common_tokens = sum((a_counter & b_counter).values())
+    total_tokens = sum(a_counter.values()) + sum(b_counter.values())
+    token_similarity = (2.0 * common_tokens) / total_tokens if total_tokens > 0 else 0.0
+    
+    # Adjust threshold for titles to be more lenient
+    threshold_adjust = 0.6 if field == 'title' else 0.7
+    
+    # Log similarity for debugging
+    logging.debug(f"Comparing {field}: '{a}' vs '{b}' -> token similarity={token_similarity:.2f}")
+    
+    return token_similarity
 
 def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     try:
@@ -29,6 +57,7 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
     except Exception as e:
         raise ValueError(f"Failed to load JSON file {file_path}: {str(e)}")
     
+    print(f"📁 Loading {file_path}...")
     controls = {}
     for control in data.get('controls', []):
         control_id = control.get('id')
@@ -54,13 +83,8 @@ def load_profile(file_path: str) -> Dict[str, Dict[str, Any]]:
             'title': title.strip(),
             'nist': nist
         }
+    print(f"✅ Loaded {len(controls)} controls from {file_path}")
     return controls
-
-def is_similar(a: str, b: str) -> float:
-    if not a.strip() or not b.strip():
-        return 0.0
-    similarity = SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
-    return similarity
 
 def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str, Any]], fuzzy: bool, threshold: float) -> Dict[str, List[Dict[str, Any]]]:
     differences = {
@@ -70,7 +94,7 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         'reassigned': []  # title/check/fix matches a different control_id (fuzzy only)
     }
 
-    # Removed and Reassigned (baseline to target)
+    print("🔍 Checking for Removed and Reassigned controls...")
     for cid in set(base) - set(target):
         base_check = base[cid]['check'] or ''
         base_fix = base[cid]['fix'] or ''
@@ -82,12 +106,13 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 target_check = target_data['check'] or ''
                 target_fix = target_data['fix'] or ''
                 target_title = target_data['title'] or ''
-                title_similarity = is_similar(base_title, target_title)
-                check_similarity = is_similar(base_check, target_check)
-                fix_similarity = is_similar(base_fix, target_fix)
-                if title_similarity >= threshold or check_similarity >= threshold or fix_similarity >= threshold:
+                title_similarity = is_similar(base_title, target_title, 'title')
+                check_similarity = is_similar(base_check, target_check, 'check')
+                fix_similarity = is_similar(base_fix, target_fix, 'fix')
+                adjusted_threshold = 0.6 if 'title' in [base_title, target_title] else threshold
+                if title_similarity >= adjusted_threshold or check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
-                    if title_similarity >= threshold:
+                    if title_similarity >= adjusted_threshold:
                         details.append(f"Title matched in target {target_cid} (similarity: {title_similarity:.2f}); Baseline title: {base_title}; Target title: {target_title}")
                     if check_similarity >= threshold:
                         details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
@@ -118,8 +143,9 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'change': 'removed',
                 'details': 'No matching control found in target'
             })
+    print(f"✅ Found {len(differences['removed'])} removed and {len(differences['reassigned'])} reassigned controls")
 
-    # Added and Reassigned (target to baseline)
+    print("🔍 Checking for Added and Reassigned controls...")
     for cid in set(target) - set(base):
         target_check = target[cid]['check'] or ''
         target_fix = target[cid]['fix'] or ''
@@ -131,12 +157,13 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 base_check = base_data['check'] or ''
                 base_fix = base_data['fix'] or ''
                 base_title = base_data['title'] or ''
-                title_similarity = is_similar(target_title, base_title)
-                check_similarity = is_similar(target_check, base_check)
-                fix_similarity = is_similar(target_fix, base_fix)
-                if title_similarity >= threshold or check_similarity >= threshold or fix_similarity >= threshold:
+                title_similarity = is_similar(target_title, base_title, 'title')
+                check_similarity = is_similar(target_check, base_check, 'check')
+                fix_similarity = is_similar(target_fix, base_fix, 'fix')
+                adjusted_threshold = 0.6 if 'title' in [target_title, base_title] else threshold
+                if title_similarity >= adjusted_threshold or check_similarity >= threshold or fix_similarity >= threshold:
                     details = []
-                    if title_similarity >= threshold:
+                    if title_similarity >= adjusted_threshold:
                         details.append(f"Title matched in baseline {base_cid} (similarity: {title_similarity:.2f}); Target title: {target_title}; Baseline title: {base_title}")
                     if check_similarity >= threshold:
                         details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
@@ -167,8 +194,9 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'change': 'added',
                 'details': 'No matching control found in baseline'
             })
-    
-    # Modified
+    print(f"✅ Found {len(differences['added'])} added and {len(differences['reassigned'])} reassigned controls")
+
+    print("🔍 Checking for Modified controls...")
     for cid in set(base) & set(target):
         base_check = base[cid]['check'] or ''
         base_fix = base[cid]['fix'] or ''
@@ -182,10 +210,10 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
         fix_diff = normalize_text(base_fix) != normalize_text(target_fix)
         
         if fuzzy:
-            title_similarity = is_similar(base_title, target_title)
-            check_similarity = is_similar(base_check, target_check)
-            fix_similarity = is_similar(base_fix, target_fix)
-            title_diff = title_diff and title_similarity < threshold
+            title_similarity = is_similar(base_title, target_title, 'title')
+            check_similarity = is_similar(base_check, target_check, 'check')
+            fix_similarity = is_similar(base_fix, target_fix, 'fix')
+            title_diff = title_diff and title_similarity < 0.6  # Lower threshold for titles
             check_diff = check_diff and check_similarity < threshold
             fix_diff = fix_diff and fix_similarity < threshold
         else:
@@ -216,18 +244,22 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 'change': 'modified',
                 'details': '; '.join(details)
             })
-    
+    print(f"✅ Found {len(differences['modified'])} modified controls")
+
     return differences
 
 def output_to_json(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
     try:
+        print(f"💾 Writing output to {output_file} (JSON)...")
         with open(output_file, 'w') as f:
             json.dump(diffs, f, indent=4)
+        print(f"✅ JSON output written to {output_file}")
     except Exception as e:
         raise ValueError(f"Failed to write JSON output to {output_file}: {str(e)}")
 
 def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
     try:
+        print(f"💾 Writing output to {output_file} (Markdown)...")
         with open(output_file, 'w') as f:
             f.write('# InSpec Profile Differences\n\n')
             
@@ -244,11 +276,13 @@ def output_to_md(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                         fix = (item.get('fix', '') or '').replace('|', '\\|')
                         f.write(f'| {item["change"]} | {item["control_id"]} | {title} | {check} | {fix} | {nist_str} | {details} |\n')
                     f.write('\n')
+        print(f"✅ Markdown output written to {output_file}")
     except Exception as e:
         raise ValueError(f"Failed to write Markdown output to {output_file}: {str(e)}")
 
 def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
     try:
+        print(f"💾 Writing output to {output_file} (Excel)...")
         data = []
         for category, items in diffs.items():
             for item in items:
@@ -263,6 +297,7 @@ def output_to_xlsx(diffs: Dict[str, List[Dict[str, Any]]], output_file: str):
                 })
         df = pd.DataFrame(data)
         df.to_excel(output_file, index=False)
+        print(f"✅ Excel output written to {output_file}")
     except Exception as e:
         raise ValueError(f"Failed to write Excel output to {output_file}: {str(e)}")
 
@@ -284,6 +319,7 @@ def main():
     if not 0.0 <= args.similarity <= 1.0:
         raise ValueError("Similarity threshold must be between 0.0 and 1.0")
     
+    print("🚀 Starting InSpec profile comparison...")
     base_controls = load_profile(args.baseline)
     target_controls = load_profile(args.target)
     
@@ -298,9 +334,10 @@ def main():
         output_to_xlsx(differences, args.output)
     else:
         raise ValueError('Unsupported output format. Use .md, .xlsx, or .json')
+    print("🎉 Comparison completed!")
 
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
