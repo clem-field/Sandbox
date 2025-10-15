@@ -36,12 +36,25 @@ def main():
     parser.add_argument('-u', '--unidirectional', action='store_true', help="When used with --delta, only include controls in --delta not in --filter.")
     args = parser.parse_args()
 
+    # Print selected options
+    print(f"Selected options:")
+    print(f"  Input file: {args.input}")
+    print(f"  Filter overlay: {args.filter}")
+    print(f"  Output directory: {args.output}")
+    if args.target:
+        print(f"  Target file: {args.target}")
+        print(f"  Delta overlay: {args.delta}")
+    if args.unidirectional:
+        print(f"  Unidirectional comparison: Enabled")
+    print()
+
     # Validate input file
     try:
         validate_json_file(args.input)
     except ValueError as e:
         print(f"Error: {e}")
         return
+    print(f"Input file '{args.input}' validated successfully.")
 
     # Validate that --target requires --delta
     if args.target and not args.delta:
@@ -60,17 +73,21 @@ def main():
         except ValueError as e:
             print(f"Error: {e}")
             return
+        print(f"Target file '{args.target}' validated successfully.")
 
     # Load JSON data from input file
     with open(args.input, 'r') as f:
         input_data = json.load(f)
+    print(f"Loaded input file '{args.input}' successfully.")
 
     # Filter controls
+    print("Starting analysis...")
     matched = []
     if args.target and args.delta:
         # Load JSON data from target file
         with open(args.target, 'r') as f:
             target_data = json.load(f)
+        print(f"Loaded target file '{args.target}' successfully.")
 
         # Get control IDs for each overlay
         filter_controls = {control['control_id'] for control in input_data if args.filter in control.get('overlay', [])}
@@ -117,7 +134,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / output_filename
     df.to_excel(output_file, index=False)
-    print(f"Output saved to {output_file}")
+    print(f"Output file written to '{output_file}'.")
 
 if __name__ == "__main__":
     main()
