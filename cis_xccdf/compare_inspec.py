@@ -11,42 +11,48 @@ from collections import Counter
 logging.basicConfig(level=logging.WARNING)
 
 def normalize_text(text: str) -> str:
-    """Normalize text for comparison, preserving path separators and key terms."""
+    """Normalize text for comparison, preserving path separators and quotes."""
     if not text:
         return ""
     # Remove extra spaces, standardize quotes
     text = re.sub(r'\s+', ' ', text.strip())
-    text = text.replace('\"', '"').replace("'", '"').replace('\\', '')
-    # Preserve path separators and specific punctuation (e.g., /)
-    # Remove other punctuation except for slashes in paths
-    text = re.sub(r'[^\w\s/]', '', text)
+    text = text.replace('\"', '"').replace("'", '"')
+    # Preserve path separators and quoted terms
     return text.lower()
 
 def is_similar(a: str, b: str, field: str = 'unknown') -> float:
-    """Compute token-based similarity between two strings."""
+    """Compute token-based similarity with weighted key terms."""
     if not a.strip() or not b.strip():
         return 0.0
+    
+    # Key terms to weight higher (e.g., mount options, paths)
+    key_terms = {'nosuid', 'nodev', 'noexec', '/etc/fstab', '/dev/shm', '/var/tmp', '/tmp', '/var'}
+    weight_factor = 2.0  # Weight for key terms
     
     # Normalize and split into tokens
     a_tokens = normalize_text(a).split()
     b_tokens = normalize_text(b).split()
     
-    # If either is empty after normalization
     if not a_tokens or not b_tokens:
         return 0.0
     
-    # Compute token overlap using Counter
+    # Compute weighted token overlap
     a_counter = Counter(a_tokens)
     b_counter = Counter(b_tokens)
-    common_tokens = sum((a_counter & b_counter).values())
-    total_tokens = sum(a_counter.values()) + sum(b_counter.values())
-    token_similarity = (2.0 * common_tokens) / total_tokens if total_tokens > 0 else 0.0
+    common_tokens = a_counter & b_counter
+    weighted_common = sum(
+        count * (weight_factor if token in key_terms else 1.0)
+        for token, count in common_tokens.items()
+    )
+    total_a = sum(count * (weight_factor if token in key_terms else 1.0) for token, count in a_counter.items())
+    total_b = sum(count * (weight_factor if token in key_terms else 1.0) for token, count in b_counter.items())
+    token_similarity = (2.0 * weighted_common) / (total_a + total_b) if (total_a + total_b) > 0 else 0.0
     
-    # Adjust threshold for titles to be more lenient
-    threshold_adjust = 0.6 if field == 'title' else 0.7
-    
-    # Log similarity for debugging
-    logging.debug(f"Comparing {field}: '{a}' vs '{b}' -> token similarity={token_similarity:.2f}")
+    # Log tokens and similarity for debugging
+    common_token_list = sorted(common_tokens.keys())
+    logging.debug(f"Comparing {field}: '{a}' vs '{b}'")
+    logging.debug(f"Common tokens: {common_token_list}")
+    logging.debug(f"Weighted similarity={token_similarity:.2f} (common={weighted_common:.2f}, total_a={total_a:.2f}, total_b={total_b:.2f})")
     
     return token_similarity
 
@@ -109,19 +115,17 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(base_title, target_title, 'title')
                 check_similarity = is_similar(base_check, target_check, 'check')
                 fix_similarity = is_similar(base_fix, target_fix, 'fix')
-                adjusted_threshold = 0.6 if 'title' in [base_title, target_title] else threshold
-                if title_similarity >= adjusted_threshold or check_similarity >= threshold or fix_similarity >= threshold:
+                adjusted_threshold = 0.5 if 'title' in [base_title, target_title] else threshold
+                check_fix_threshold = 0.5  # Lower threshold for check/fix
+                if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
                     if title_similarity >= adjusted_threshold:
                         details.append(f"Title matched in target {target_cid} (similarity: {title_similarity:.2f}); Baseline title: {base_title}; Target title: {target_title}")
-                    if check_similarity >= threshold:
+                    if check_similarity >= check_fix_threshold:
                         details.append(f"Check matched in target {target_cid} (similarity: {check_similarity:.2f}); Baseline check: {base_check}; Target check: {target_check}")
-                    if fix_similarity >= threshold:
+                    if fix_similarity >= check_fix_threshold:
                         details.append(f"Fix matched in target {target_cid} (similarity: {fix_similarity:.2f}); Baseline fix: {base_fix}; Target fix: {target_fix}")
                     matches.append('; '.join(details))
-                else:
-                    if base_fix and target_fix:
-                        logging.debug(f"No match for {cid} -> {target_cid}: title similarity={title_similarity:.2f}, check similarity={check_similarity:.2f}, fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
@@ -160,19 +164,17 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
                 title_similarity = is_similar(target_title, base_title, 'title')
                 check_similarity = is_similar(target_check, base_check, 'check')
                 fix_similarity = is_similar(target_fix, base_fix, 'fix')
-                adjusted_threshold = 0.6 if 'title' in [target_title, base_title] else threshold
-                if title_similarity >= adjusted_threshold or check_similarity >= threshold or fix_similarity >= threshold:
+                adjusted_threshold = 0.5 if 'title' in [target_title, base_title] else threshold
+                check_fix_threshold = 0.5
+                if title_similarity >= adjusted_threshold or check_similarity >= check_fix_threshold or fix_similarity >= check_fix_threshold:
                     details = []
                     if title_similarity >= adjusted_threshold:
                         details.append(f"Title matched in baseline {base_cid} (similarity: {title_similarity:.2f}); Target title: {target_title}; Baseline title: {base_title}")
-                    if check_similarity >= threshold:
+                    if check_similarity >= check_fix_threshold:
                         details.append(f"Check matched in baseline {base_cid} (similarity: {check_similarity:.2f}); Target check: {target_check}; Baseline check: {base_check}")
-                    if fix_similarity >= threshold:
+                    if fix_similarity >= check_fix_threshold:
                         details.append(f"Fix matched in baseline {base_cid} (similarity: {fix_similarity:.2f}); Target fix: {target_fix}; Baseline fix: {base_fix}")
                     matches.append('; '.join(details))
-                else:
-                    if target_fix and base_fix:
-                        logging.debug(f"No match for {cid} -> {base_cid}: title similarity={title_similarity:.2f}, check similarity={check_similarity:.2f}, fix similarity={fix_similarity:.2f}, threshold={threshold}")
             if matches:
                 differences['reassigned'].append({
                     'control_id': cid,
@@ -213,9 +215,9 @@ def compare_profiles(base: Dict[str, Dict[str, Any]], target: Dict[str, Dict[str
             title_similarity = is_similar(base_title, target_title, 'title')
             check_similarity = is_similar(base_check, target_check, 'check')
             fix_similarity = is_similar(base_fix, target_fix, 'fix')
-            title_diff = title_diff and title_similarity < 0.6  # Lower threshold for titles
-            check_diff = check_diff and check_similarity < threshold
-            fix_diff = fix_diff and fix_similarity < threshold
+            title_diff = title_diff and title_similarity < 0.5
+            check_diff = check_diff and check_similarity < 0.5
+            fix_diff = fix_diff and fix_similarity < 0.5
         else:
             title_similarity = None
             check_similarity = None
@@ -307,8 +309,8 @@ def main():
     parser.add_argument('-t', '--target', required=True, help='Path to target JSON file')
     parser.add_argument('-f', '--fuzzy', type=str, choices=['True', 'False'], default='False', 
                         help='Enable fuzzy matching (True/False, default: False)')
-    parser.add_argument('-s', '--similarity', type=float, default=0.7, 
-                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.7)')
+    parser.add_argument('-s', '--similarity', type=float, default=0.5, 
+                        help='Fuzzy matching similarity threshold (0.0 to 1.0, default: 0.5)')
     parser.add_argument('-o', '--output', required=True, help='Output file path (.md, .xlsx, .json)')
     
     args = parser.parse_args()
