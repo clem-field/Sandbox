@@ -10,6 +10,8 @@ def validate_json_file(file_path: str) -> None:
         with open(file_path, 'r', encoding='utf-8') as f:
             lib.json.load(f)
     except lib.json.JSONDecodeError:
+            lib.json.load(f)
+    except lib.json.JSONDecodeError:
         raise ValueError(f"Input file '{file_path}' is not a valid JSON file.")
     except FileNotFoundError:
         raise ValueError(f"Input file '{file_path}' not found.")
@@ -24,6 +26,7 @@ def _join_list(lst: lib.Any) -> str:
     return str(lst).strip() if lst else ""
 
 
+def normalise_r4(control: lib.Dict[str, lib.Any]) -> lib.Dict[str, lib.Any]:
 def normalise_r4(control: lib.Dict[str, lib.Any]) -> lib.Dict[str, lib.Any]:
     """Flat R4 control to common dict."""
     # Extract NIST tag (preferred canonical ID)
@@ -236,6 +239,7 @@ def main() -> None:
     print(f"  -> {len(input_controls)} control(s) loaded from input file.")
 
     target_controls: lib.List[lib.Dict[str, lib.Any]] = []
+    target_controls: lib.List[lib.Dict[str, lib.Any]] = []
     if args.target:
         print(f"Loading and normalising '{args.target}' ...")
         target_controls = load_and_normalise(args.target, args.delta)
@@ -243,6 +247,7 @@ def main() -> None:
 
     print("Starting analysis...")
 
+    matched: lib.List[lib.Dict[str, lib.Any]] = []
     matched: lib.List[lib.Dict[str, lib.Any]] = []
 
     # SINGLE-FILE MODE
