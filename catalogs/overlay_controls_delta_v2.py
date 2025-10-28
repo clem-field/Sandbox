@@ -27,7 +27,6 @@ def _join_list(lst: lib.Any) -> str:
 
 
 def normalise_r4(control: lib.Dict[str, lib.Any]) -> lib.Dict[str, lib.Any]:
-def normalise_r4(control: lib.Dict[str, lib.Any]) -> lib.Dict[str, lib.Any]:
     """Flat R4 control to common dict."""
     # Extract NIST tag (preferred canonical ID)
     nist_tag = ""
