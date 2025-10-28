@@ -1,20 +1,4 @@
-#!/usr/bin/env python3
-"""
-extract_controls.py
-
-Extract NIST controls from R4 (flat) or R5 (nested) JSON files.
-Supports:
-  • Single-file overlay filtering (Low/Mod/High)
-  • Dual-file delta comparison (symmetric or unidirectional)
-  • R5 baseline-parameter extraction for Low/Mod/High
-  • Progress print statements
-"""
-
-import json
-import argparse
-import pandas as pd
-from pathlib import Path
-from typing import Dict, List, Any, Optional
+import libraries as lib
 
 
 # --------------------------------------------------------------------------- #
@@ -25,8 +9,8 @@ def validate_json_file(file_path: str) -> None:
         raise ValueError(f"Input file '{file_path}' must have a .json extension.")
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            json.load(f)
-    except json.JSONDecodeError:
+            lib.json.load(f)
+    except lib.json.JSONDecodeError:
         raise ValueError(f"Input file '{file_path}' is not a valid JSON file.")
     except FileNotFoundError:
         raise ValueError(f"Input file '{file_path}' not found.")
@@ -35,14 +19,14 @@ def validate_json_file(file_path: str) -> None:
 # --------------------------------------------------------------------------- #
 # Normalisation helpers
 # --------------------------------------------------------------------------- #
-def _join_list(lst: Any) -> str:
+def _join_list(lst: lib.Any) -> str:
     """Turn a list (or anything) into a comma-separated string."""
     if isinstance(lst, list):
         return ", ".join(str(i).strip() for i in lst if i and str(i).strip())
     return str(lst).strip() if lst else ""
 
 
-def normalise_r4(control: Dict[str, Any]) -> Dict[str, Any]:
+def normalise_r4(control: lib.Dict[str, lib.Any]) -> lib.Dict[str, lib.Any]:
     """Flat R4 control to common dict."""
     return {
         "control_id": control.get("control_id", ""),
@@ -55,7 +39,7 @@ def normalise_r4(control: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def normalise_r5(control: Dict[str, Any], requested_overlay: Optional[str] = None) -> Dict[str, Any]:
+def normalise_r5(control: lib.Dict[str, lib.Any], requested_overlay: lib.Optional[str] = None) -> lib.Dict[str, lib.Any]:
     """
     Nested R5 control to common dict.
     If requested_overlay is Low/Mod/High, pull the matching baseline parameters.
@@ -104,11 +88,11 @@ def normalise_r5(control: Dict[str, Any], requested_overlay: Optional[str] = Non
 # --------------------------------------------------------------------------- #
 # Load & normalise any file (R4 or R5)
 # --------------------------------------------------------------------------- #
-def load_and_normalise(file_path: str, requested_overlay: Optional[str] = None) -> List[Dict[str, Any]]:
+def load_and_normalise(file_path: str, requested_overlay: lib.Optional[str] = None) -> lib.List[lib.Dict[str, lib.Any]]:
     with open(file_path, "r", encoding="utf-8") as f:
-        raw = json.load(f)
+        raw = lib.json.load(f)
 
-    normalised: List[Dict[str, Any]] = []
+    normalised: lib.List[lib.Dict[str, lib.Any]] = []
 
     # R4: single object or list of objects
     if isinstance(raw, dict) and "control_id" in raw:
@@ -130,7 +114,7 @@ def load_and_normalise(file_path: str, requested_overlay: Optional[str] = None) 
 # --------------------------------------------------------------------------- #
 # Extraction for final Excel
 # --------------------------------------------------------------------------- #
-def extract_for_excel(control: Dict[str, Any]) -> Dict[str, Any]:
+def extract_for_excel(control: lib.Dict[str, lib.Any]) -> lib.ict[str, lib.Any]:
     out = {
         "control_id": control.get("control_id", ""),
         "title": control.get("title", ""),
@@ -150,7 +134,7 @@ def extract_for_excel(control: Dict[str, Any]) -> Dict[str, Any]:
 # Main
 # --------------------------------------------------------------------------- #
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = lib.argparse.ArgumentParser(
         description="Extract NIST controls (R4/R5) – single file or delta comparison."
     )
     parser.add_argument("-i", "--input", required=True, help="First JSON file (used with --filter).")
@@ -201,7 +185,7 @@ def main() -> None:
     input_controls = load_and_normalise(args.input, args.filter)
     print(f"  -> {len(input_controls)} control(s) loaded from input file.")
 
-    target_controls: List[Dict[str, Any]] = []
+    target_controls: lib.List[lib.Dict[str, lib.Any]] = []
     if args.target:
         print(f"Loading and normalising '{args.target}' ...")
         target_controls = load_and_normalise(args.target, args.delta)
@@ -209,7 +193,7 @@ def main() -> None:
 
     print("Starting analysis...")
 
-    matched: List[Dict[str, Any]] = []
+    matched: lib.List[lib.Dict[str, lib.Any]] = []
 
     # SINGLE-FILE MODE
     if not args.target:
@@ -271,8 +255,8 @@ def main() -> None:
         print(msg)
         return
 
-    df = pd.DataFrame(matched)
-    out_dir = Path(args.output)
+    df = lib.pd.DataFrame(matched)
+    out_dir = lib.Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / output_filename
     df.to_excel(out_path, index=False)
