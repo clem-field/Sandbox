@@ -15,7 +15,8 @@ variable "services" {
     "ROUTE53",        # Amazon Route 53
     "SECRETSMANAGER", # AWS Secrets Manager
     "ACM",            # AWS Certificate Manager
-    "ELBV2"           # Application Load Balancer (ALB) — uses ELBV2 in AWS Health
+    "ELBV2",          # Application Load Balancer (ALB) — uses ELBV2 in AWS Health
+    "ELB"             # Classic ALB  
   ]
 }
 
