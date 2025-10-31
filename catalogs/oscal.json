@@ -1,0 +1,52 @@
+{
+    "catalog": {
+        "uuid": "sha256",
+        "metadata":{
+            "title":"catalog title",
+            "published": "2020-02-02T11:01:04.736-04:00",
+            "last-modified": "2020-02-02T11:01:04.736-04:00",
+            "version": "1.0",
+            "oscal-version": "1.0.0-rc1",
+            "remarks": ""
+        },
+        "groups":[
+            {
+                "id": "s1",
+                "title": "Organization of Information Security",
+                "props":[
+                    {
+                        "name": "label",
+                        "value": "1"
+                    }
+                ],
+                "groups": [
+                    {
+                        "id": "s1.1",
+                        "title": "Internal Organization",
+                        "controls": [
+                            {
+                                "id": "s1.1.1",
+                                "title" : "Information security roles an responsibilities",
+                                "params": [
+                                    {
+                                        "id": "s11.1.1-prm1",
+                                        "label": "a choice from a selection",
+                                        "select": {
+                                            "how-many": "one-or-more",
+                                            "choice": [
+                                                "initiating a device lock after {{ insert: param, s1.1.1-prm_2 }} of inactivity",
+                                                "requiring the user to initiate a deice lock before leaving the system unattended"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "controls":{},
+        "back-matter": {}
+    }
+}

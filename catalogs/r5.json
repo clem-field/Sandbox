@@ -1,0 +1,39 @@
+{
+    "family": "Access Control (AC)",
+    "controls":[
+        {
+            "control_id": "AC-3.c",
+            "control_description":[
+                {
+                    "title": "Access Enforcement",
+                    "language": "do something"
+                }
+            ],
+            "extended_description":[
+                {
+                    "high_baseline_parameters": "a. do this way",
+                    "moderate_baseline_parameters": "a. do this way",
+                    "low_baseline_parameters": "a. do this way",
+                    "supplemental_guidance": "here is more information",
+                    "implementation_guidance": "here is how to implement",
+                    "check": "",
+                    "fix": "",
+                    "related_controls":[],
+                    "references":[
+                        {
+                            "nist":[],
+                            "org_ref":[]
+                        }
+                    ]
+                }
+            ],
+            "overlay":"",
+            "tags":[
+                {
+                    "rev5":[]
+                }
+            ]
+
+        }
+    ]
+}

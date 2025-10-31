@@ -1,0 +1,34 @@
+{
+    "family": "access Control (AC)",
+    "control_id": "AC-3 (c) CAP",
+    "title": "Access Enforcement",
+    "language": "do something",
+    "supplemental_guidance": "more information",
+    "implementation_guidance": "how to implement",
+    "nist_discussion": "",
+    "related_controls":[],
+    "nist":[],
+    "nist_sort_added":"AC-03(c)",
+    "nist_control_clean": "AC-03(C)",
+    "org_refs": [],
+    "overlay": [],
+    "nist_control": "AC-3(c)",
+    "assessment_methods": "",
+    "assessment_objective": "",
+    "check": "",
+    "fix": "",
+    "tags": [
+        {
+            "nist": [],
+            "grc": "",
+            "baseline": [],
+            "org_ref": [],
+            "nist_references": [],
+            "related_controls": []
+        }
+    ],
+    "code": "",
+    "baseline_id": "",
+    "id": "",
+    "cmcma": ""
+}

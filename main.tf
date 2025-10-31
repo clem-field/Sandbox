@@ -123,3 +123,11 @@ module "vpc" {
   region    = var.region
   vpc_cidr  = var.vpc_cidr
 }
+
+module "health_alerting" {
+  source        = "./modules/aws-health-alerting"
+  alert_email   = "platform-alerts@yourcompany.com"
+  services      = ["EC2", "RDS", "ELB", "LAMBDA"]
+  event_categories = ["issue", "scheduledChange"]
+  region        = "us-west-2"  # Change per environment
+}
