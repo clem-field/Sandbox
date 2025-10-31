@@ -4,9 +4,19 @@ variable "alert_email" {
 }
 
 variable "services" {
-  description = "List of AWS services to monitor for Health events (e.g., EC2, RDS)"
+  description = "List of AWS services to monitor for Health events"
   type        = list(string)
-  default     = ["EC2", "RDS", "S3", "LAMBDA"]
+  default = [
+    "ECR",            # Amazon Elastic Container Registry
+    "ECS",            # Amazon Elastic Container Service
+    "IAM",            # AWS Identity and Access Management
+    "CLOUDWATCH",     # Amazon CloudWatch
+    "RDS",            # Amazon Relational Database Service
+    "ROUTE53",        # Amazon Route 53
+    "SECRETSMANAGER", # AWS Secrets Manager
+    "ACM",            # AWS Certificate Manager
+    "ELBV2"           # Application Load Balancer (ALB) — uses ELBV2 in AWS Health
+  ]
 }
 
 variable "event_categories" {
@@ -16,7 +26,7 @@ variable "event_categories" {
 }
 
 variable "region" {
-  description = "AWS region to deploy resources in (required for multi-region setup)"
+  description = "AWS region to deploy resources in"
   type        = string
   default     = "us-east-1"
 }
