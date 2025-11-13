@@ -1,0 +1,30 @@
+- |
+      if [ -z "${AWS_ACCESS_KEY_ID:-}" ]; then
+        echo "ERROR: AWS_ACCESS_KEY_ID is empty or not set!" >&2
+        exit 1
+      fi
+      if [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+        echo "ERROR: AWS_SECRET_ACCESS_KEY is empty or not set!" >&2
+        exit 1
+      fi
+      # Optional: only check token if you expect it
+      # if [ -z "${AWS_SESSION_TOKEN:-}" ]; then
+      #   echo "WARNING: AWS_SESSION_TOKEN is empty (may be okay for long-term creds)"
+      # fi
+      echo "All required AWS credentials are present."
+- |
+      saf convert aws_config2hdf \
+        -r "$SAF_REGION" \
+        -a "$AWS_ACCESS_KEY_ID" \
+        -s "$AWS_SECRET_ACCESS_KEY" \
+        -t "${AWS_SESSION_TOKEN:-}" \
+        -o "$SAF_OUTPUT"
+
+- |
+  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ] || [ -z "${AWS_SESSION_TOKEN:-}" ] ]]; then
+    echo "ERROR: Missing 1 or more inputs to run saf convert aws_config2hdf!" >&2
+    exit 1
+  else
+    echo "Starting saf convert aws_config2hdf"
+    saf convert aws_config2hdf -r $REGION -a $AWS_ACCESS_KEY_ID" -s "$AWS_SECRET_ACCESS_KEY" -t "${AWS_SESSION_TOKEN:-}" -o "$SAF_OUTPUT"
+  fi

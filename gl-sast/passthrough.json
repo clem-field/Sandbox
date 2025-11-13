@@ -1,6 +1,13 @@
 {
     "name": "block 0",
     "data": {
+        "team": "some team name",
+        "businessName": "some business name",
+        "projectName": "some project name",
+        "projectNumber": "some project number",
+        "accountID":"account number",
+        "region": "region",
+        "environment":"",
         "runTimeEpoch": 1757418969,
         "initiatedBy": "me@me.com",
         "controls": [
