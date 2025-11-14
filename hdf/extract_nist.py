@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-extract_nist.py – Clear, accurate summary of SAST checks and NIST coverage.
+extract_nist.py – Full SAST-to-NIST mapping analysis with gap detection.
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Set, List, Dict, Any
+from typing import Set, List, Dict, Any, Tuple
 
 
 def load_hdf(path: Path) -> dict:
@@ -18,30 +18,52 @@ def load_hdf(path: Path) -> dict:
 def extract_summary(hdf: dict) -> Dict[str, Any]:
     profiles = hdf.get("profiles", [])
     if not profiles:
-        return {"unique_checks": 0, "nist_controls": [], "unique_nist_controls": 0}
+        return {
+            "unique_checks": 0,
+            "unique_nist_controls": 0,
+            "nist_controls": [],
+            "missing_nist": []
+        }
 
     controls = profiles[0].get("controls", [])
-    seen_checks = set()
+    seen_checks: Set[Tuple[str, str]] = set()
     nist_set: Set[str] = set()
+    missing_nist: List[Dict[str, str]] = []
+    mapped_check_keys: Set[Tuple[str, str]] = set()
 
     for ctrl in controls:
-        # Unique check = (CWE ID, rule title)
-        check_key = (ctrl.get("id"), ctrl.get("title"))
+        ctrl_id = ctrl.get("id", "unknown")
+        title = ctrl.get("title", "No title")
+        check_key = (ctrl_id, title)
+
+        # Track unique checks
         if check_key not in seen_checks:
             seen_checks.add(check_key)
 
-        # Extract short NIST ID: "NIST-800-53:AC-2" → "AC-2"
-        for nist in ctrl.get("tags", {}).get("nist", []):
-            parts = nist.strip().split(":")
-            short_id = parts[-1].strip().split()[0] if parts else ""
-            if short_id:
-                nist_set.add(short_id)
+        # Extract NIST controls
+        nist_list = ctrl.get("tags", {}).get("nist", [])
+        if nist_list:
+            mapped_check_keys.add(check_key)
+            for nist in nist_list:
+                # Extract short ID: "NIST-800-53:AC-2" → "AC-2"
+                short_id = nist.strip().split(":")[-1].strip().split()[0]
+                if short_id:
+                    nist_set.add(short_id)
+        else:
+            # No NIST → candidate for missing list
+            if check_key not in mapped_check_keys and check_key not in [m["key"] for m in missing_nist]:
+                missing_nist.append({"key": check_key, "id": ctrl_id, "title": title})
+
+    # Clean up missing_nist: remove internal key
+    missing_nist = [{"id": m["id"], "title": m["title"]} for m in missing_nist]
 
     nist_list = sorted(nist_set)
+
     return {
         "unique_checks": len(seen_checks),
         "unique_nist_controls": len(nist_list),
-        "nist_controls": nist_list
+        "nist_controls": nist_list,
+        "missing_nist": missing_nist
     }
 
 
@@ -58,18 +80,26 @@ def write_xlsx(data: List[Dict[str, Any]], out_path: Path) -> None:
         sys.exit("Error: Install pandas & openpyxl: pip install pandas openpyxl")
 
     if not data:
-        df = pd.DataFrame(columns=["profile", "unique_checks", "unique_nist_controls", "nist_controls"])
+        df = pd.DataFrame(columns=[
+            "profile", "unique_checks", "unique_nist_controls",
+            "nist_controls", "missing_nist_count", "missing_nist_details"
+        ])
     else:
         row = data[0].copy()
         row["nist_controls"] = ", ".join(row["nist_controls"])
+        row["missing_nist_count"] = len(row["missing_nist"])
+        row["missing_nist_details"] = " | ".join(
+            f"{m['id']}:{m['title']}" for m in row["missing_nist"]
+        )
         df = pd.DataFrame([row])
+
     df.to_excel(out_path, index=False, engine="openpyxl")
 
 
 # -------------------------- CLI --------------------------
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Summarize SAST checks and NIST control coverage from HDF."
+        description="Analyze SAST checks vs NIST control coverage with gap detection."
     )
     parser.add_argument("-i", "--input", required=True, type=Path, help="Input HDF JSON file")
     parser.add_argument("-o", "--output", required=True, type=Path, help="Output file")
@@ -95,7 +125,8 @@ def main() -> None:
         "profile": args.profile,
         "unique_checks": summary["unique_checks"],
         "unique_nist_controls": summary["unique_nist_controls"],
-        "nist_controls": summary["nist_controls"]
+        "nist_controls": summary["nist_controls"],
+        "missing_nist": summary["missing_nist"]
     }]
 
     if args.format == "json":
@@ -103,15 +134,26 @@ def main() -> None:
     else:
         write_xlsx(result, out_path)
 
-    # Pretty feedback
-    print(f"Success: Summary saved to {out_path}")
+    # === Pretty Summary ===
+    print(f"Success: Analysis saved to {out_path}")
     print(f"   Profile: {args.profile}")
     print(f"   Unique SAST Checks: {summary['unique_checks']}")
-    print(f"   Unique NIST Controls: {summary['unique_nist_controls']}")
+    print(f"   Mapped to NIST: {summary['unique_nist_controls']} controls")
+    print(f"   Missing NIST Mapping: {len(summary['missing_nist'])} checks")
+
     if summary["nist_controls"]:
         preview = ", ".join(summary["nist_controls"][:5])
         preview += "..." if len(summary["nist_controls"]) > 5 else ""
-        print(f"   NIST IDs: {preview}")
+        print(f"   NIST Coverage: {preview}")
+
+    if summary["missing_nist"]:
+        print(f"   Unmapped Checks (sample):")
+        for m in summary["missing_nist"][:3]:
+            print(f"     • [{m['id']}] {m['title']}")
+        if len(summary["missing_nist"]) > 3:
+            print(f"     ... and {len(summary['missing_nist']) - 3} more")
+    else:
+        print("   All checks have NIST mappings!")
 
 
 if __name__ == "__main__":
