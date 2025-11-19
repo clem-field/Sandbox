@@ -15,53 +15,57 @@ def load_hdf(path: Path) -> dict:
         return json.load(f)
 
 
+import re
+
 def extract_summary(hdf: dict) -> Dict[str, Any]:
     profiles = hdf.get("profiles", [])
     if not profiles:
         return {
             "unique_checks": 0,
             "unique_nist_controls": 0,
+            "missing_nist_count": 0,
             "nist_controls": [],
             "missing_nist": []
         }
 
     controls = profiles[0].get("controls", [])
     seen_checks: Set[Tuple[str, str]] = set()
-    nist_set: Set[str] = set()
+    nist_raw_set: Set[str] = set()        # ← Keeps exact original strings
+    mapped_checks: Set[Tuple[str, str]] = set()
     missing_nist: List[Dict[str, str]] = []
-    mapped_check_keys: Set[Tuple[str, str]] = set()
 
     for ctrl in controls:
         ctrl_id = ctrl.get("id", "unknown")
         title = ctrl.get("title", "No title")
         check_key = (ctrl_id, title)
 
-        # Track unique checks
         if check_key not in seen_checks:
             seen_checks.add(check_key)
 
-        # Extract NIST controls
         nist_list = ctrl.get("tags", {}).get("nist", [])
+
         if nist_list:
-            mapped_check_keys.add(check_key)
+            mapped_checks.add(check_key)
             for nist in nist_list:
-                # Extract short ID: "NIST-800-53:AC-2" → "AC-2"
-                short_id = nist.strip().split(":")[-1].strip().split()[0]
-                if short_id:
-                    nist_set.add(short_id)
-        else:
-            # No NIST → candidate for missing list
-            if check_key not in mapped_check_keys and check_key not in [m["key"] for m in missing_nist]:
-                missing_nist.append({"key": check_key, "id": ctrl_id, "title": title})
+                # Clean but preserve exact sub-part formatting
+                cleaned = nist.strip()
+                if ":" in cleaned:
+                    cleaned = cleaned.split(":", 1)[1].strip()  # Remove prefix if present
+                if cleaned:
+                    nist_raw_set.add(cleaned)
+        # If no nist_list at all → will be caught later
 
-    # Clean up missing_nist: remove internal key
-    missing_nist = [{"id": m["id"], "title": m["title"]} for m in missing_nist]
+    # Build missing list
+    for check_key in seen_checks - mapped_checks:
+        ctrl_id, title = check_key
+        missing_nist.append({"id": ctrl_id, "title": title})
 
-    nist_list = sorted(nist_set)
+    nist_list = sorted(nist_raw_set)  # Sorted alphabetically, preserves exact text
 
     return {
         "unique_checks": len(seen_checks),
         "unique_nist_controls": len(nist_list),
+        "missing_nist_count": len(missing_nist),
         "nist_controls": nist_list,
         "missing_nist": missing_nist
     }
