@@ -15,7 +15,38 @@ def load_hdf(path: Path) -> dict:
         return json.load(f)
 
 
-import re
+def expand_condensed_nist(entry: str) -> List[str]:
+    """
+    Expands condensed NIST sub-controls into individual entries.
+    Examples:
+      "AU-12 (a) (b) (c)" → ["AU-12 (a)", "AU-12 (b)", "AU-12 (c)"]
+      "AC-2 (1)(2)(3)"     → ["AC-2 (1)", "AC-2 (2)", "AC-2 (3)"]
+      "SC-7 a b c"         → ["SC-7 a", "SC-7 b", "SC-7 c"]
+    """
+    entry = entry.strip()
+    if ":" in entry:
+        entry = entry.split(":", 1)[1].strip()
+
+    # Match base control + multiple subparts in parentheses or letters
+    paren_match = re.search(r'([A-Z]{1,4}-\d+(?: \([1-9a-z]\))+)(\s+\([1-9a-z]\))+', entry, re.IGNORECASE)
+    letter_match = re.search(r'([A-Z]{1,4}-\d+)\s+([a-z])(?:\s+([a-z]))+', entry, re.IGNORECASE)
+
+    expanded = []
+
+    if paren_match:
+        base = re.search(r'[A-Z]{1,4}-\d+', entry).group()
+        subs = re.findall(r'\(([1-9a-z])\)', entry)
+        expanded = [f"{base} ({s})" for s in subs]
+    elif letter_match:
+        base = letter_match.group(1)
+        letters = re.findall(r'\b([a-z])\b', entry)
+        expanded = [f"{base} {let}" for let in letters]
+    else:
+        # Normal single entry
+        expanded = [entry]
+
+    return expanded
+
 
 def extract_summary(hdf: dict) -> Dict[str, Any]:
     profiles = hdf.get("profiles", [])
@@ -30,7 +61,7 @@ def extract_summary(hdf: dict) -> Dict[str, Any]:
 
     controls = profiles[0].get("controls", [])
     seen_checks: Set[Tuple[str, str]] = set()
-    nist_raw_set: Set[str] = set()        # ← Keeps exact original strings
+    nist_set: Set[str] = set()
     mapped_checks: Set[Tuple[str, str]] = set()
     missing_nist: List[Dict[str, str]] = []
 
@@ -42,25 +73,26 @@ def extract_summary(hdf: dict) -> Dict[str, Any]:
         if check_key not in seen_checks:
             seen_checks.add(check_key)
 
-        nist_list = ctrl.get("tags", {}).get("nist", [])
+        raw_nist_list = ctrl.get("tags", {}).get("nist", [])
 
-        if nist_list:
+        if raw_nist_list:
             mapped_checks.add(check_key)
-            for nist in nist_list:
-                # Clean but preserve exact sub-part formatting
-                cleaned = nist.strip()
-                if ":" in cleaned:
-                    cleaned = cleaned.split(":", 1)[1].strip()  # Remove prefix if present
-                if cleaned:
-                    nist_raw_set.add(cleaned)
-        # If no nist_list at all → will be caught later
+            for raw_entry in raw_nist_list:
+                if not raw_entry:
+                    continue
+                # Expand condensed notation first
+                expanded_entries = expand_condensed_nist(raw_entry)
+                for exp in expanded_entries:
+                    cleaned = exp.strip()
+                    if cleaned:
+                        nist_set.add(cleaned)
 
     # Build missing list
     for check_key in seen_checks - mapped_checks:
         ctrl_id, title = check_key
         missing_nist.append({"id": ctrl_id, "title": title})
 
-    nist_list = sorted(nist_raw_set)  # Sorted alphabetically, preserves exact text
+    nist_list = sorted(nist_set)
 
     return {
         "unique_checks": len(seen_checks),
@@ -69,7 +101,6 @@ def extract_summary(hdf: dict) -> Dict[str, Any]:
         "nist_controls": nist_list,
         "missing_nist": missing_nist
     }
-
 
 # -------------------------- Writers --------------------------
 def write_json(data: List[Dict[str, Any]], out_path: Path) -> None:
