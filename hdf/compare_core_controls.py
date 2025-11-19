@@ -29,8 +29,16 @@ def compare_against_new_baseline(scan_data, baseline_data):
         print("No scan data")
         return []
 
-    scan_profile = scan_data[0]
-    profile_name = scan_profile.get("profile", "Unknown")
+    # FIXED: Handle both list and bare dict
+    if isinstance(scan_data, list):
+        if not scan_data:
+            print("Error: Empty scan list")
+            return []
+        scan_profile = scan_data[0]
+    else:
+        scan_profile = scan_data
+
+    profile_name = scan_profile.get("profile", "Unknown Scan")
     scan_nist_exact = {item.strip().upper() for item in scan_profile.get("nist_controls", [])}
     scan_nist_bases = {extract_base_id(item) for item in scan_profile.get("nist_controls", [])}
 
@@ -70,6 +78,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
         })
 
     return results
+
 def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     if not data:
         df = lib.pd.DataFrame(columns=[
