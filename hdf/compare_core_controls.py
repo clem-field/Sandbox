@@ -73,25 +73,18 @@ def compare_against_new_baseline(scan_data, baseline_data):
 def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     if not data:
         df = lib.pd.DataFrame(columns=[
-            "input_profile", "baseline_profile", "primary_controls_met",
-            "target_controls_met", "total_coverage_percent"
+            "Input Profile", "Baseline Period", "Required", "Met", "Coverage %", "Missing Controls"
         ])
     else:
-        # Flatten for Excel friendliness
         rows = []
         for row in data:
             flat = {
                 "Input Profile": row["input_profile"],
-                "Baseline Profile": row["baseline_profile"],
-                "Primary Required": row["primary_controls_required"],
-                "Primary Met": row["primary_controls_met"],
-                "Target Required": row["target_controls_required"],
-                "Target Met": row["target_controls_met"],
-                "Total Required": row["total_controls_required"],
-                "Total Met": row["total_controls_met"],
-                "Coverage %": row["total_coverage_percent"],
-                "Missing Primary": " | ".join(row["missing_primary"]),
-                "Missing Target": " | ".join(row["missing_target"])
+                "Baseline Period": row["baseline_period"],
+                "Required": row["required_controls"],
+                "Met": row["controls_met"],
+                "Coverage %": f"{row['coverage_percent']}%",
+                "Missing Controls": " | ".join(row["missing_controls"]) if row["missing_controls"] else "None"
             }
             rows.append(flat)
         df = lib.pd.DataFrame(rows)
