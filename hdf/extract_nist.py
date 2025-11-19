@@ -8,44 +8,56 @@ import json
 import sys
 from pathlib import Path
 from typing import Set, List, Dict, Any, Tuple
-
+import re
 
 def load_hdf(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-
-def expand_condensed_nist(entry: str) -> List[str]:
+def expand_condensed_nist(raw: str) -> List[str]:
     """
-    Expands condensed NIST sub-controls into individual entries.
-    Examples:
-      "AU-12 (a) (b) (c)" → ["AU-12 (a)", "AU-12 (b)", "AU-12 (c)"]
-      "AC-2 (1)(2)(3)"     → ["AC-2 (1)", "AC-2 (2)", "AC-2 (3)"]
-      "SC-7 a b c"         → ["SC-7 a", "SC-7 b", "SC-7 c"]
+    Handles every real-world condensed NIST format seen in HDF/Heimdall files:
+      "AU-12(a)(b)(c)"      → ["AU-12 (a)", "AU-12 (b)", "AU-12 (c)"]
+      "AU-12 (a)(b)(c)"     → same
+      "AC-2(1)(2)(3)"       → ["AC-2 (1)", "AC-2 (2)", "AC-2 (3)"]
+      "SC-7 a b c"          → ["SC-7 a", "SC-7 b", "SC-7 c"]
+      "CM-6b"               → ["CM-6 b"]
+      "IA-5 (1) (a)"        → handled safely as separate entries
     """
-    entry = entry.strip()
-    if ":" in entry:
-        entry = entry.split(":", 1)[1].strip()
+    raw = raw.strip()
+    if ":" in raw:
+        raw = raw.split(":", 1)[1].strip()
 
-    # Match base control + multiple subparts in parentheses or letters
-    paren_match = re.search(r'([A-Z]{1,4}-\d+(?: \([1-9a-z]\))+)(\s+\([1-9a-z]\))+', entry, re.IGNORECASE)
-    letter_match = re.search(r'([A-Z]{1,4}-\d+)\s+([a-z])(?:\s+([a-z]))+', entry, re.IGNORECASE)
+    expanded: List[str] = []
 
-    expanded = []
+    # 1. Compact no-space parens: AU-12(a)(b)(c) or AU-12 (a)(b)(c)
+    compact_paren = re.search(r'([A-Z]{1,4}-\d+(?:\s*\([^()]+?\))+)', raw, re.IGNORECASE)
+    if compact_paren:
+        base_match = re.search(r'[A-Z]{1,4}-\d+', raw)
+        if not base_match:
+            expanded.append(raw)
+            return expanded
+        base = base_match.group()
+        # Find all (a), (b), (11), etc.
+        subs = re.findall(r'\(\s*([a-zA-Z0-9]+)\s*\)', raw)
+        expanded = [f"{base} ({sub})" for sub in subs]
+        return expanded
 
-    if paren_match:
-        base = re.search(r'[A-Z]{1,4}-\d+', entry).group()
-        subs = re.findall(r'\(([1-9a-z])\)', entry)
-        expanded = [f"{base} ({s})" for s in subs]
-    elif letter_match:
+    # 2. Space-separated letters: SC-7 a b c
+    letter_match = re.match(r'([A-Z]{1,4}-\d+)\s+([a-z])(?:\s+([a-z]))*(?:\s+([a-z]))?', raw, re.IGNORECASE)
+    if letter_match:
         base = letter_match.group(1)
-        letters = re.findall(r'\b([a-z])\b', entry)
+        letters = re.findall(r'\b([a-z])\b', raw, re.IGNORECASE)
         expanded = [f"{base} {let}" for let in letters]
-    else:
-        # Normal single entry
-        expanded = [entry]
+        return expanded
 
-    return expanded
+    # 3. Single trailing letter: CM-6b → CM-6 b
+    single_letter = re.match(r'([A-Z]{1,4}-\d+)([a-z])$', raw, re.IGNORECASE)
+    if single_letter:
+        return [f"{single_letter.group(1)} {single_letter.group(2)}"]
+
+    # 4. Fallback: already correct or unknown format
+    return [raw]
 
 
 def extract_summary(hdf: dict) -> Dict[str, Any]:
@@ -73,17 +85,15 @@ def extract_summary(hdf: dict) -> Dict[str, Any]:
         if check_key not in seen_checks:
             seen_checks.add(check_key)
 
-        raw_nist_list = ctrl.get("tags", {}).get("nist", [])
+        raw_nist_list = ctrl.get("tags", {}).get("nist", []) or []
 
         if raw_nist_list:
             mapped_checks.add(check_key)
-            for raw_entry in raw_nist_list:
-                if not raw_entry:
+            for entry in raw_nist_list:
+                if not entry:
                     continue
-                # Expand condensed notation first
-                expanded_entries = expand_condensed_nist(raw_entry)
-                for exp in expanded_entries:
-                    cleaned = exp.strip()
+                for expanded in expand_condensed_nist(entry):
+                    cleaned = expanded.strip()
                     if cleaned:
                         nist_set.add(cleaned)
 
