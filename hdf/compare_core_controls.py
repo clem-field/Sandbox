@@ -1,92 +1,75 @@
+#!/usr/bin/env python3
 import libraries as lib
-import locals as var
+import locals as var  # kept even if unused — matches your environment
+
 """
-compare_nist_coverage.py
-
-Compares an HDF-derived NIST report (your existing script's JSON output)
-against a baseline of required controls.
-
-Usage:
-  python compare_nist_coverage.py \\
-    -i report.json \\
-    -b baseline.json \\
-    [-o comparison_report.json] [--format json|xlsx]
-
-Baseline format (baseline.json):
-[
-  {
-    "profile": "Core Controls",
-    "primary_controls": ["AC-2", "AC-3 (1)", "AU-12 (a)", "CM-6 b"],
-    "target_controls": ["IA-5 (1)", "SC-7 (3)", "SI-4 a"]
-  }
-]
+compare_core_controls_v2.py
+Now supports the real NIST 800-53 baseline format with base + specific enhancements
 """
 
+def extract_base_id(nist_str: str) -> str:
+    """ "AU-12 (a)" → "AU-12", "AC-3" → "AC-3" """
+    cleaned = nist_str.strip().split(":", 1)[-1] if ":" in nist_str else nist_str.strip()
+    return lib.re.split(r'\s+\(?[a-zA-Z0-9]*\)?', cleaned)[0].strip().upper()
 
+def is_exact_match(required: str, found: str) -> bool:
+    """ True if found exactly matches required (including sub-control) """
+    return required.strip().upper() == found.strip().upper()
 
-def load_json(path: lib.Path) -> lib.List[lib.Dict[str, lib.Any]]:
+def is_base_match(required_base: str, found: str) -> bool:
+    """ True if found covers the base control (any enhancement counts) """
+    return extract_base_id(found) == extract_base_id(required_base)
+
+def load_json(path: lib.Path):
     with path.open("r", encoding="utf-8") as f:
         return lib.json.load(f)
 
-
-def compare_against_baseline(
-    input_data: lib.List[lib.Dict[str, lib.Any]],
-    baseline_data: lib.List[lib.Dict[str, lib.Any]]
-) -> lib.List[lib.Dict[str, lib.Any]]:
-    """
-    Compares the nist_controls from input against primary + target in baseline.
-    """
-    if not input_data:
-        print("Warning: Input file is empty.")
+def compare_against_new_baseline(scan_data, baseline_data):
+    if not scan_data:
+        print("No scan data")
         return []
 
-    if not baseline_data:
-        print("Warning: Baseline file is empty.")
-        return []
-
-    # Assume single profile per file (common case)
-    scan_profile = input_data[0]
-    scan_nist_set: lib.Set[str] = set(scan_profile.get("nist_controls", []))
+    scan_profile = scan_data[0]
+    profile_name = scan_profile.get("profile", "Unknown")
+    scan_nist_exact = {item.strip().upper() for item in scan_profile.get("nist_controls", [])}
+    scan_nist_bases = {extract_base_id(item) for item in scan_profile.get("nist_controls", [])}
 
     results = []
 
-    for baseline in baseline_data:
-        profile_name = baseline.get("profile", "Unknown Baseline")
-        primary = set(baseline.get("primary_controls", []))
-        target = set(baseline.get("target_controls", []))
+    for period in ["controls_this_year", "controls_next_year"]:
+        controls = baseline_data.get(period, [])
+        total = len(controls)
+        met = 0
+        missing = []
 
-        all_required = primary.union(target)
+        for ctrl in controls:
+            req = ctrl["control_id"]
+            req_upper = req.strip().upper()
 
-        primary_met = len(primary & scan_nist_set)
-        target_met = len(target & scan_nist_set)
-        total_met = primary_met + target_met
-        total_required = len(all_required)
-        coverage_pct = (total_met / total_required * 100) if total_required > 0 else 0
+            # Exact match required if it has a sub-control
+            if "(" in req or req_upper[-1].isalpha():
+                satisfied = req_upper in scan_nist_exact
+            else:
+                # Base control: any enhancement satisfies it
+                satisfied = extract_base_id(req) in scan_nist_bases
 
-        result = {
-            "input_profile": scan_profile.get("profile", "Unknown Scan"),
-            "baseline_profile": profile_name,
-            "primary_controls_required": len(primary),
-            "primary_controls_met": primary_met,
-            "target_controls_required": len(target),
-            "target_controls_met": target_met,
-            "total_controls_required": total_required,
-            "total_controls_met": total_met,
-            "total_coverage_percent": round(coverage_pct, 2),
-            # Optional: list missing ones for deep dives
-            "missing_primary": sorted(primary - scan_nist_set),
-            "missing_target": sorted(target - scan_nist_set)
-        }
-        results.append(result)
+            if satisfied:
+                met += 1
+            else:
+                missing.append(req)
+
+        coverage = round(met / total * 100, 2) if total else 0
+
+        results.append({
+            "input_profile": profile_name,
+            "baseline_period": "This Year" if "this_year" in period else "Next Year",
+            "required_controls": total,
+            "controls_met": met,
+            "coverage_percent": coverage,
+            "missing_controls": missing
+        })
 
     return results
-
-
-def write_json(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
-    with out_path.open("w", encoding="utf-8") as f:
-        lib.json.dump(data, f, indent=2)
-
-
 def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     if not data:
         df = lib.pd.DataFrame(columns=[
@@ -115,60 +98,41 @@ def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> No
 
     df.to_excel(out_path, index=False, engine="openpyxl")
 
-
-def build_parser() -> lib.argparse.ArgumentParser:
-    parser = lib.argparse.ArgumentParser(
-        description="Compare HDF NIST scan results against a required baseline."
-    )
-    parser.add_argument("-i", "--input", required=True, type=lib.Path,
-                        help="Your existing HDF scan JSON output (with nist_controls array)")
-    parser.add_argument("-b", "--baseline", required=True, type=lib.Path,
-                        help="Baseline JSON with primary_controls and target_controls")
-    parser.add_argument("-o", "--output", type=lib.Path, default=lib.Path("comparison_report.json"),
-                        help="Output file (default: comparison_report.json or .xlsx)")
-    parser.add_argument("-f", "--format", choices=["json", "xlsx"], default="json",
-                        help="Output format")
-    return parser
-
-
-def main() -> None:
-    args = build_parser().parse_args()
+def main():
+    parser = lib.argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", required=True, type=lib.Path)
+    parser.add_argument("-b", "--baseline", required=True, type=lib.Path)
+    parser.add_argument("-o", "--output", type=lib.Path, default=lib.Path("coverage_report.json"))
+    parser.add_argument("-f", "--format", choices=["json", "xlsx"], default="json")
+    args = parser.parse_args()
 
     for p in (args.input, args.baseline):
         if not p.is_file():
-            lib.sys.exit(f"Error: File not found: {p}")
+            lib.sys.exit(f"File not found: {p}")
 
-    ext = ".json" if args.format == "json" else ".xlsx"
-    out_path = args.output.with_suffix(ext)
+    out_path = args.output.with_suffix(".json" if args.format == "json" else ".xlsx")
 
-    input_data = load_json(args.input)
-    baseline_data = load_json(args.baseline)
-
-    comparison = compare_against_baseline(input_data, baseline_data)
+    scan = load_json(args.input)
+    baseline = load_json(args.baseline)
+    comparison = compare_against_new_baseline(scan, baseline)
 
     if args.format == "json":
-        write_json(comparison, out_path)
+        with out_path.open("w") as f:
+            lib.json.dump(comparison, f, indent=2)
     else:
         try:
             write_xlsx(comparison, out_path)
         except ImportError:
             lib.sys.exit("Error: For XLSX output, run: pip install pandas openpyxl")
 
-    # Pretty console summary
-    if comparison:
-        r = comparison[0]
-        print("\nNIST Coverage Comparison Summary")
-        print("=" * 50)
-        print(f"Scan Profile       : {r['input_profile']}")
-        print(f"Baseline           : {r['baseline_profile']}")
-        print(f"Primary Met        : {r['primary_controls_met']} / {r['primary_controls_required']}")
-        print(f"Target Met         : {r['target_controls_met']} / {r['target_controls_required']}")
-        print(f"TOTAL COVERAGE     : {r['total_controls_met']} / {r['total_controls_required']} "
-              f"({r['total_coverage_percent']}%)")
-        print(f"Report saved to    : {out_path}")
-    else:
-        print("No comparison results generated.")
+    # Console summary
+    for r in comparison:
+        print(f"\n{r['baseline_period']} Baseline")
+        print(f"   {r['controls_met']} / {r['required_controls']} met → {r['coverage_percent']}%")
+        if r['missing_controls']:
+            print(f"   Missing: {', '.join(r['missing_controls'][:8])}{'...' if len(r['missing_controls']) > 8 else ''}")
 
+    print(f"\nReport: {out_path}")
 
 if __name__ == "__main__":
     main()
