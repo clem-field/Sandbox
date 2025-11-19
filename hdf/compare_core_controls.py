@@ -29,36 +29,51 @@ def compare_against_new_baseline(scan_data, baseline_data):
         print("No scan data")
         return []
 
-    # FIXED: Handle both list and bare dict
-    if isinstance(scan_data, list):
-        if not scan_data:
-            print("Error: Empty scan list")
-            return []
-        scan_profile = scan_data[0]
-    else:
+    
+    if isinstance(scan_data, dict):
         scan_profile = scan_data
+    elif isinstance(scan_data, list):
+        while scan_data and isinstance(scan_data[0],  # flatten double lists
+            list):
+            scan_data = [item for sublist in scan_data for item in sublist]
+        scan_profile = scan_data[0] if scan_data else {}
+    else:
+        print("Unknown scan data format")
+        return []
 
     profile_name = scan_profile.get("profile", "Unknown Scan")
-    scan_nist_exact = {item.strip().upper() for item in scan_profile.get("nist_controls", [])}
-    scan_nist_bases = {extract_base_id(item) for item in scan_profile.get("nist_controls", [])}
+    raw_nist = scan_profile.get("nist_controls", [])
+    scan_nist_exact = {s.strip().upper() for s in raw_nist if isinstance(s, str)}
+    scan_nist_bases = {extract_base_id(s) for s in raw_nist if isinstance(s, str)}
+
+    
+    if isinstance(baseline_data, list) and baseline_data:
+        baseline_obj = baseline_data[0]
+    elif isinstance(baseline_data, dict):
+        baseline_obj = baseline_data
+    else:
+        print("Invalid baseline format")
+        return []
 
     results = []
-
     for period in ["controls_this_year", "controls_next_year"]:
-        controls = baseline_data.get(period, [])
+        controls = baseline_obj.get(period, [])
         total = len(controls)
         met = 0
         missing = []
 
         for ctrl in controls:
-            req = ctrl["control_id"]
-            req_upper = req.strip().upper()
+            req = ctrl.get("control_id", "").strip()
+            if not req:
+                continue
+            req_upper = req.upper()
 
-            # Exact match required if it has a sub-control
-            if "(" in req or req_upper[-1].isalpha():
+            # Has enhancement? Require exact match
+            has_enhancement = "(" in req or (len(req_upper) > 5 and req_upper[-1].isalpha())
+
+            if has_enhancement:
                 satisfied = req_upper in scan_nist_exact
             else:
-                # Base control: any enhancement satisfies it
                 satisfied = extract_base_id(req) in scan_nist_bases
 
             if satisfied:
