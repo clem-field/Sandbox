@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+import libraries as lib
+import locals as var
 """
 compare_nist_coverage.py
 
@@ -21,23 +22,17 @@ Baseline format (baseline.json):
 ]
 """
 
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import List, Dict, Any, Set
-import pandas as pd
 
 
-def load_json(path: Path) -> List[Dict[str, Any]]:
+def load_json(path: lib.Path) -> lib.List[lib.Dict[str, lib.Any]]:
     with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        return lib.json.load(f)
 
 
 def compare_against_baseline(
-    input_data: List[Dict[str, Any]],
-    baseline_data: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    input_data: lib.List[lib.Dict[str, lib.Any]],
+    baseline_data: lib.List[lib.Dict[str, lib.Any]]
+) -> lib.List[lib.Dict[str, lib.Any]]:
     """
     Compares the nist_controls from input against primary + target in baseline.
     """
@@ -51,7 +46,7 @@ def compare_against_baseline(
 
     # Assume single profile per file (common case)
     scan_profile = input_data[0]
-    scan_nist_set: Set[str] = set(scan_profile.get("nist_controls", []))
+    scan_nist_set: lib.Set[str] = set(scan_profile.get("nist_controls", []))
 
     results = []
 
@@ -87,14 +82,14 @@ def compare_against_baseline(
     return results
 
 
-def write_json(data: List[Dict[str, Any]], out_path: Path) -> None:
+def write_json(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     with out_path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+        lib.json.dump(data, f, indent=2)
 
 
-def write_xlsx(data: List[Dict[str, Any]], out_path: Path) -> None:
+def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     if not data:
-        df = pd.DataFrame(columns=[
+        df = lib.pd.DataFrame(columns=[
             "input_profile", "baseline_profile", "primary_controls_met",
             "target_controls_met", "total_coverage_percent"
         ])
@@ -116,20 +111,20 @@ def write_xlsx(data: List[Dict[str, Any]], out_path: Path) -> None:
                 "Missing Target": " | ".join(row["missing_target"])
             }
             rows.append(flat)
-        df = pd.DataFrame(rows)
+        df = lib.pd.DataFrame(rows)
 
     df.to_excel(out_path, index=False, engine="openpyxl")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def build_parser() -> lib.argparse.ArgumentParser:
+    parser = lib.argparse.ArgumentParser(
         description="Compare HDF NIST scan results against a required baseline."
     )
-    parser.add_argument("-i", "--input", required=True, type=Path,
+    parser.add_argument("-i", "--input", required=True, type=lib.Path,
                         help="Your existing HDF scan JSON output (with nist_controls array)")
-    parser.add_argument("-b", "--baseline", required=True, type=Path,
+    parser.add_argument("-b", "--baseline", required=True, type=lib.Path,
                         help="Baseline JSON with primary_controls and target_controls")
-    parser.add_argument("-o", "--output", type=Path, default=Path("comparison_report.json"),
+    parser.add_argument("-o", "--output", type=lib.Path, default=lib.Path("comparison_report.json"),
                         help="Output file (default: comparison_report.json or .xlsx)")
     parser.add_argument("-f", "--format", choices=["json", "xlsx"], default="json",
                         help="Output format")
@@ -141,7 +136,7 @@ def main() -> None:
 
     for p in (args.input, args.baseline):
         if not p.is_file():
-            sys.exit(f"Error: File not found: {p}")
+            lib.sys.exit(f"Error: File not found: {p}")
 
     ext = ".json" if args.format == "json" else ".xlsx"
     out_path = args.output.with_suffix(ext)
@@ -157,7 +152,7 @@ def main() -> None:
         try:
             write_xlsx(comparison, out_path)
         except ImportError:
-            sys.exit("Error: For XLSX output, run: pip install pandas openpyxl")
+            lib.sys.exit("Error: For XLSX output, run: pip install pandas openpyxl")
 
     # Pretty console summary
     if comparison:
