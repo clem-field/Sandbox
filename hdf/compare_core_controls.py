@@ -1,31 +1,8 @@
 #!/usr/bin/env python3
 import libraries as lib
-import locals as var  # kept even if unused — matches your environment
-
-"""
-compare_core_controls_v2.py
-Now supports the real NIST 800-53 baseline format with base + specific enhancements
-"""
-
-def extract_base_id(nist_str: str) -> str:
-    """ "AU-12 (a)" → "AU-12", "AC-3" → "AC-3" """
-    cleaned = nist_str.strip().split(":", 1)[-1] if ":" in nist_str else nist_str.strip()
-    return lib.re.split(r'\s+\(?[a-zA-Z0-9]*\)?', cleaned)[0].strip().upper()
-
-def is_exact_match(required: str, found: str) -> bool:
-    """ True if found exactly matches required (including sub-control) """
-    return required.strip().upper() == found.strip().upper()
-
-def is_base_match(required_base: str, found: str) -> bool:
-    """ True if found covers the base control (any enhancement counts) """
-    return extract_base_id(found) == extract_base_id(required_base)
-
-def load_json(path: lib.Path):
-    with path.open("r", encoding="utf-8") as f:
-        return lib.json.load(f)
+import locals as var
 
 def normalize_nist(cid: str) -> str:
-    """Canonical normalization tested with your exact data"""
     if not cid:
         return ""
 
@@ -38,15 +15,14 @@ def normalize_nist(cid: str) -> str:
 
     # Find base control
     base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', c, lib.re.IGNORECASE)
-    if 
-        not base_match:
+    if not base_match:
         return c.upper()
     base = base_match.group(0).upper()
     base_end = base_match.end()
 
-    # Enhancement handling
+    # Enhancement
     enh_raw = c[base_end:].strip()
-    enh_clean = lib.re.sub(r'[\(\)\.]', ' ', enh_raw)      # . ( ) → space
+    enh_clean = lib.re.sub(r'[\(\)\.]', ' ', enh_raw)
     enh_clean = lib.re.sub(r'\s+', ' ', enh_clean).strip().lower()
 
     if enh_clean:
@@ -59,13 +35,14 @@ def compare_against_new_baseline(scan_data, baseline_data):
         print("No scan data")
         return []
 
-    # --- Robust scan profile extraction ---
+    # Robust scan extraction
     if isinstance(scan_data, dict):
         scan_profile = scan_data
     elif isinstance(scan_data, list):
-        while scan_data and isinstance(scan_data[0], list):
-            scan_data = [item for sublist in scan_data for item in sublist]
-        scan_profile = scan_data[0] if scan_data else {}
+        tmp = scan_data
+        while tmp and isinstance(tmp[0], list):
+            tmp = [item for sublist in tmp for item in sublist]
+        scan_profile = tmp[0] if tmp else {}
     else:
         return []
 
@@ -73,7 +50,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
     raw_nist = scan_profile.get("nist_controls", []) or []
     scan_normalized = {normalize_nist(item) for item in raw_nist if isinstance(item, str)}
 
-    # --- Baseline extraction ---
+    # Baseline extraction
     if isinstance(baseline_data, list) and baseline_data:
         baseline_obj = baseline_data[0]
     elif isinstance(baseline_data, dict):
@@ -99,10 +76,13 @@ def compare_against_new_baseline(scan_data, baseline_data):
             # Default: exact normalized match
             satisfied = req_norm in scan_normalized
 
-            # If required is base-only, any enhancement also satisfies
+            # If baseline requires only the base control, any enhancement satisfies it
             if " (" not in req_norm:
                 base_req = req_norm
-                satisfied = any(s == base_req or s.startswith(base_req + " (") for s in scan_normalized)
+                satisfied = any(
+                    s == base_req or s.startswith(base_req + " (")
+                    for s in scan_normalized
+                )
 
             if satisfied:
                 met += 1
@@ -121,6 +101,10 @@ def compare_against_new_baseline(scan_data, baseline_data):
         })
 
     return results
+
+
+# Keep your write_xlsx and main() exactly as they are — they are fine
+# (no changes needed below this line)
 
 def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
     if not data:
@@ -142,6 +126,7 @@ def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> No
         df = lib.pd.DataFrame(rows)
 
     df.to_excel(out_path, index=False, engine="openpyxl")
+
 
 def main():
     parser = lib.argparse.ArgumentParser()
@@ -170,7 +155,6 @@ def main():
         except ImportError:
             lib.sys.exit("Error: For XLSX output, run: pip install pandas openpyxl")
 
-    # Console summary
     for r in comparison:
         print(f"\n{r['baseline_period']} Baseline")
         print(f"   {r['controls_met']} / {r['required_controls']} met → {r['coverage_percent']}%")
