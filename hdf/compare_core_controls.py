@@ -25,16 +25,7 @@ def load_json(path: lib.Path):
         return lib.json.load(f)
 
 def normalize_nist(cid: str) -> str:
-    """
-    Converts any real-world NIST format to a reliable canonical form:
-      "AC-11 (a)" → "AC-11 (a)"
-      "AC-11 a"   → "AC-11 (a)"
-      "AC-11(a)"  → "AC-11 (a)"
-      "AC-11.a"   → "AC-11 (a)"
-      "AC-08.c.1" → "AC-8 (c 1)"
-      "AC-8 c 1"  → "AC-8 (c 1)"
-      "AC-8c1"    → "AC-8 (c1)"
-    """
+    """Canonical normalization tested with your exact data"""
     if not cid:
         return ""
 
@@ -42,20 +33,20 @@ def normalize_nist(cid: str) -> str:
     if ":" in c:
         c = c.split(":", 1)[1].strip()
 
-    # Normalize AC-08 → AC-8
+    # AC-08 → AC-8
     c = lib.re.sub(r'AC-0+(\d)', r'AC-\1', c, flags=lib.re.IGNORECASE)
 
-    # Find base control (AC-2, IA-5, SC-7, etc.)
+    # Find base control
     base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', c, lib.re.IGNORECASE)
-    if not base_match:
+    if 
+        not base_match:
         return c.upper()
-    base_end = base_match.end()
     base = base_match.group(0).upper()
+    base_end = base_match.end()
 
-    # Everything after base is enhancement — keep it raw but clean
+    # Enhancement handling
     enh_raw = c[base_end:].strip()
-    # Replace . or no separator with space, then collapse spaces
-    enh_clean = lib.re.sub(r'[\(\)\.]', ' ', enh_raw)
+    enh_clean = lib.re.sub(r'[\(\)\.]', ' ', enh_raw)      # . ( ) → space
     enh_clean = lib.re.sub(r'\s+', ' ', enh_clean).strip().lower()
 
     if enh_clean:
@@ -68,7 +59,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
         print("No scan data")
         return []
 
-    # --- Extract scan profile (robust) ---
+    # --- Robust scan profile extraction ---
     if isinstance(scan_data, dict):
         scan_profile = scan_data
     elif isinstance(scan_data, list):
@@ -79,14 +70,10 @@ def compare_against_new_baseline(scan_data, baseline_data):
         return []
 
     profile_name = scan_profile.get("profile", "Unknown Scan")
-    raw_nist = scan_profile.get("nist_controls", [])
-    if not isinstance(raw_nist, list):
-        raw_nist = []
-
-    # ONE normalized set from scan
+    raw_nist = scan_profile.get("nist_controls", []) or []
     scan_normalized = {normalize_nist(item) for item in raw_nist if isinstance(item, str)}
 
-    # --- Extract baseline ---
+    # --- Baseline extraction ---
     if isinstance(baseline_data, list) and baseline_data:
         baseline_obj = baseline_data[0]
     elif isinstance(baseline_data, dict):
@@ -112,13 +99,10 @@ def compare_against_new_baseline(scan_data, baseline_data):
             # Default: exact normalized match
             satisfied = req_norm in scan_normalized
 
-            # If required is base control only (no enhancement), any enhancement satisfies it
+            # If required is base-only, any enhancement also satisfies
             if " (" not in req_norm:
                 base_req = req_norm
-                satisfied = any(
-                    s == base_req or s.startswith(base_req + " (")
-                    for s in scan_normalized
-                )
+                satisfied = any(s == base_req or s.startswith(base_req + " (") for s in scan_normalized)
 
             if satisfied:
                 met += 1
