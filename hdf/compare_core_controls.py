@@ -7,52 +7,6 @@ compare_core_controls_v2.py
 Now supports the real NIST 800-53 baseline format with base + specific enhancements
 """
 
-def normalize_control_id(cid: str) -> str:
-    """
-    Very permissive normalization – only used for base-control matching.
-    Goal: turn anything into "IA-5 (c)", "AC-3 (1)", "SC-7 a", etc.
-    """
-    if not cid:
-        return ""
-
-    cleaned = cid.strip()
-    if ":" in cleaned:
-        cleaned = cleaned.split(":", 1)[1].strip()
-
-    # Find the base control (e.g. IA-5, AC-3, SC-7(3))
-    base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', cleaned, lib.re.IGNORECASE)
-    if not base_match:
-        return cleaned.upper()
-    base = base_match.group(0).upper()
-
-    # Find any enhancement after the base (very loose)
-    after_base = cleaned[base_match.end():].strip()
-    enh_match = lib.re.search(r'[\(\.\s\-]?([a-zA-Z0-9]+)[\)\.]?', after_base, lib.re.IGNORECASE)
-    if enh_match:
-        enh = enh_match.group(1).lower()
-        return f"{base} ({enh})"
-
-    return base
-
-
-def is_control_satisfied(required_id: str, scan_normalized: lib.Set[str]) -> bool:
-    req_norm = normalize_control_id(required_id)
-
-    # If the required control specifies an enhancement → must match exactly (normalized)
-    if " (" in req_norm:
-        return req_norm in scan_normalized
-
-    # Base control only → satisfied if ANY variant exists in the scan
-    # (e.g. required "IA-5" → "IA-5 (c)", "IA-5 c", "IA-5 (1)", "IA-5 a" all count)
-    else:
-        base_prefix = req_norm + " "
-        return any(
-            s == req_norm or               # exact base
-            s.startswith(req_norm + " (") or  # with enhancement
-            s.startswith(base_prefix)             # space-separated like "IA-5 c"
-            for s in scan_normalized
-        )
-    
 def extract_base_id(nist_str: str) -> str:
     """ "AU-12 (a)" → "AU-12", "AC-3" → "AC-3" """
     cleaned = nist_str.strip().split(":", 1)[-1] if ":" in nist_str else nist_str.strip()
@@ -90,11 +44,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
     profile_name = scan_profile.get("profile", "Unknown Scan")
     raw_nist = scan_profile.get("nist_controls", [])
     scan_nist_exact = {s.strip().upper() for s in raw_nist if isinstance(s, str)}
-        # Replace this old line:
-    # scan_nist_bases_normalized = {normalize_control_id(item) for item in raw_nist if isinstance(item, str)}
-
-    # With this:
-    scan_normalized = {normalize_control_id(item) for item in raw_nist if isinstance(item, str)}
+    scan_nist_bases = {extract_base_id(s) for s in raw_nist if isinstance(s, str)}
 
     
     if isinstance(baseline_data, list) and baseline_data:
@@ -106,7 +56,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
         return []
 
     results = []
-    for period in ["controls_this_year", "controls_next_year"]:
+    for period in ["controls_25.4", "controls_2026cmca"]:
         controls = baseline_obj.get(period, [])
         total = len(controls)
         met = 0
@@ -116,9 +66,15 @@ def compare_against_new_baseline(scan_data, baseline_data):
             req = ctrl.get("control_id", "").strip()
             if not req:
                 continue
+            req_upper = req.upper()
 
-            # Use normalized matching
-            satisfied = is_control_satisfied(req, scan_normalized)
+            # Has enhancement? Require exact match
+            has_enhancement = "(" in req or (len(req_upper) > 5 and req_upper[-1].isalpha())
+
+            if has_enhancement:
+                satisfied = req_upper in scan_nist_exact
+            else:
+                satisfied = extract_base_id(req) in scan_nist_bases
 
             if satisfied:
                 met += 1
@@ -129,7 +85,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
 
         results.append({
             "input_profile": profile_name,
-            "baseline_period": "This Year" if "this_year" in period else "Next Year",
+            "baseline_period": "This Year" if "controls_25.4" in period else "controls_2026cmca",
             "required_controls": total,
             "controls_met": met,
             "coverage_percent": coverage,
