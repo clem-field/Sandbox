@@ -9,14 +9,8 @@ Now supports the real NIST 800-53 baseline format with base + specific enhanceme
 
 def normalize_control_id(cid: str) -> str:
     """
-    Normalizes NIST control IDs to a standard format:
-      "IA-5 (c)" → "IA-5 (c)"
-      "IA-5 c"   → "IA-5 (c)"
-      "IA-5(c)"  → "IA-5 (c)"
-      "IA-5.c"   → "IA-5 (c)"
-      "IA-5  c"  → "IA-5 (c)"
-      "IA-5 (C)" → "IA-5 (c)"
-    Returns uppercase base + lowercase enhancement in (x) form.
+    Very permissive normalization – only used for base-control matching.
+    Goal: turn anything into "IA-5 (c)", "AC-3 (1)", "SC-7 a", etc.
     """
     if not cid:
         return ""
@@ -25,38 +19,40 @@ def normalize_control_id(cid: str) -> str:
     if ":" in cleaned:
         cleaned = cleaned.split(":", 1)[1].strip()
 
-    # Extract base control like AC-3, IA-5, SC-7(3), etc.
-    base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', cleaned)
+    # Find the base control (e.g. IA-5, AC-3, SC-7(3))
+    base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', cleaned, lib.re.IGNORECASE)
     if not base_match:
         return cleaned.upper()
-
     base = base_match.group(0).upper()
 
-    # Look for enhancement anywhere after the base
-    enh_search = lib.re.search(r'[\(\.\s\-]?([a-zA-Z0-9]+)[\)\.]?$', cleaned[base_match.end():], lib.re.IGNORECASE)
-    if enh_search:
-        enh = enh_search.group(1).lower()
+    # Find any enhancement after the base (very loose)
+    after_base = cleaned[base_match.end():].strip()
+    enh_match = lib.re.search(r'[\(\.\s\-]?([a-zA-Z0-9]+)[\)\.]?', after_base, lib.re.IGNORECASE)
+    if enh_match:
+        enh = enh_match.group(1).lower()
         return f"{base} ({enh})"
 
     return base
 
 
 def is_control_satisfied(required_id: str, scan_normalized: lib.Set[str]) -> bool:
-    """
-    Returns True if the required control is satisfied by the scan.
-    - If required has enhancement → must match normalized form exactly
-    - If required is base only → any variant (including enhancements) satisfies it
-    """
     req_norm = normalize_control_id(required_id)
 
-    # Exact enhancement required?
+    # If the required control specifies an enhancement → must match exactly (normalized)
     if " (" in req_norm:
         return req_norm in scan_normalized
-    else:
-        # Base control – satisfied if any normalized version starts with the base
-        base_prefix = req_norm + " "
-        return any(s.startswith(req_norm) or s.startswith(base_prefix) for s in scan_normalized)
 
+    # Base control only → satisfied if ANY variant exists in the scan
+    # (e.g. required "IA-5" → "IA-5 (c)", "IA-5 c", "IA-5 (1)", "IA-5 a" all count)
+    else:
+        base_prefix = req_norm + " "
+        return any(
+            s == req_norm or               # exact base
+            s.startswith(req_norm + " (") or  # with enhancement
+            s.startswith(base_prefix)             # space-separated like "IA-5 c"
+            for s in scan_normalized
+        )
+    
 def extract_base_id(nist_str: str) -> str:
     """ "AU-12 (a)" → "AU-12", "AC-3" → "AC-3" """
     cleaned = nist_str.strip().split(":", 1)[-1] if ":" in nist_str else nist_str.strip()
