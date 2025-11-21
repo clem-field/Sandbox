@@ -26,14 +26,14 @@ def load_json(path: lib.Path):
 
 def normalize_nist(cid: str) -> str:
     """
-    Normalizes ANY NIST control format to: "AC-11 (a)" or "AC-8 (c)"
-    Handles:
+    Converts any real-world NIST format to a reliable canonical form:
       "AC-11 (a)" → "AC-11 (a)"
       "AC-11 a"   → "AC-11 (a)"
       "AC-11(a)"  → "AC-11 (a)"
       "AC-11.a"   → "AC-11 (a)"
-      "AC-08.c.1" → "AC-8 (c 1)"   ← special case for multi-part
+      "AC-08.c.1" → "AC-8 (c 1)"
       "AC-8 c 1"  → "AC-8 (c 1)"
+      "AC-8c1"    → "AC-8 (c1)"
     """
     if not cid:
         return ""
@@ -42,24 +42,24 @@ def normalize_nist(cid: str) -> str:
     if ":" in c:
         c = c.split(":", 1)[1].strip()
 
-    # Fix common AC-08.c.1 → AC-8 (c 1) style
-    c = lib.re.sub(r'^AC-0+(\d)', r'AC-\1', c)  # AC-08 → AC-8
-    c = lib.re.sub(r'\.(\d+)', r' \1', c)        # .1 →  1
+    # Normalize AC-08 → AC-8
+    c = lib.re.sub(r'AC-0+(\d)', r'AC-\1', c, flags=lib.re.IGNORECASE)
 
-    # Find base control
+    # Find base control (AC-2, IA-5, SC-7, etc.)
     base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', c, lib.re.IGNORECASE)
     if not base_match:
         return c.upper()
+    base_end = base_match.end()
     base = base_match.group(0).upper()
 
-    # Everything after base is enhancement
-    after = c[base_match.end():].strip()
-    # Clean and standardize enhancement
-    enh = lib.re.sub(r'[\(\)\.\s]+', ' ', after)   # normalize separators
-    enh = lib.re.sub(r'\s+', ' ', enh).strip().lower()
+    # Everything after base is enhancement — keep it raw but clean
+    enh_raw = c[base_end:].strip()
+    # Replace . or no separator with space, then collapse spaces
+    enh_clean = lib.re.sub(r'[\(\)\.]', ' ', enh_raw)
+    enh_clean = lib.re.sub(r'\s+', ' ', enh_clean).strip().lower()
 
-    if enh:
-        return f"{base} ({enh})"
+    if enh_clean:
+        return f"{base} ({enh_clean})"
     return base
 
 
@@ -109,13 +109,16 @@ def compare_against_new_baseline(scan_data, baseline_data):
 
             req_norm = normalize_nist(req)
 
-            # If required has enhancement → exact normalized match
-            # Otherwise → base match (any enhancement satisfies)
-            if " (" in req_norm:
-                satisfied = req_norm in scan_normalized
-            else:
+            # Default: exact normalized match
+            satisfied = req_norm in scan_normalized
+
+            # If required is base control only (no enhancement), any enhancement satisfies it
+            if " (" not in req_norm:
                 base_req = req_norm
-                satisfied = any(s.startswith(base_req + " (") or s == base_req for s in scan_normalized)
+                satisfied = any(
+                    s == base_req or s.startswith(base_req + " (")
+                    for s in scan_normalized
+                )
 
             if satisfied:
                 met += 1
