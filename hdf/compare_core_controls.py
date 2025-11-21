@@ -2,6 +2,11 @@
 import libraries as lib
 import locals as var
 
+def load_json(path: lib.Path):
+    with path.open("r", encoding="utf-8") as f:
+        return lib.json.load(f)
+
+
 def normalize_nist(cid: str) -> str:
     if not cid:
         return ""
