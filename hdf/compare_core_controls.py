@@ -7,6 +7,56 @@ compare_core_controls_v2.py
 Now supports the real NIST 800-53 baseline format with base + specific enhancements
 """
 
+def normalize_control_id(cid: str) -> str:
+    """
+    Normalizes NIST control IDs to a standard format:
+      "IA-5 (c)" → "IA-5 (c)"
+      "IA-5 c"   → "IA-5 (c)"
+      "IA-5(c)"  → "IA-5 (c)"
+      "IA-5.c"   → "IA-5 (c)"
+      "IA-5  c"  → "IA-5 (c)"
+      "IA-5 (C)" → "IA-5 (c)"
+    Returns uppercase base + lowercase enhancement in (x) form.
+    """
+    if not cid:
+        return ""
+
+    cleaned = cid.strip()
+    if ":" in cleaned:
+        cleaned = cleaned.split(":", 1)[1].strip()
+
+    # Extract base control like AC-3, IA-5, SC-7(3), etc.
+    base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', cleaned)
+    if not base_match:
+        return cleaned.upper()
+
+    base = base_match.group(0).upper()
+
+    # Look for enhancement anywhere after the base
+    enh_search = lib.re.search(r'[\(\.\s\-]?([a-zA-Z0-9]+)[\)\.]?$', cleaned[base_match.end():], lib.re.IGNORECASE)
+    if enh_search:
+        enh = enh_search.group(1).lower()
+        return f"{base} ({enh})"
+
+    return base
+
+
+def is_control_satisfied(required_id: str, scan_normalized: lib.Set[str]) -> bool:
+    """
+    Returns True if the required control is satisfied by the scan.
+    - If required has enhancement → must match normalized form exactly
+    - If required is base only → any variant (including enhancements) satisfies it
+    """
+    req_norm = normalize_control_id(required_id)
+
+    # Exact enhancement required?
+    if " (" in req_norm:
+        return req_norm in scan_normalized
+    else:
+        # Base control – satisfied if any normalized version starts with the base
+        base_prefix = req_norm + " "
+        return any(s.startswith(req_norm) or s.startswith(base_prefix) for s in scan_normalized)
+
 def extract_base_id(nist_str: str) -> str:
     """ "AU-12 (a)" → "AU-12", "AC-3" → "AC-3" """
     cleaned = nist_str.strip().split(":", 1)[-1] if ":" in nist_str else nist_str.strip()
@@ -44,7 +94,11 @@ def compare_against_new_baseline(scan_data, baseline_data):
     profile_name = scan_profile.get("profile", "Unknown Scan")
     raw_nist = scan_profile.get("nist_controls", [])
     scan_nist_exact = {s.strip().upper() for s in raw_nist if isinstance(s, str)}
-    scan_nist_bases = {extract_base_id(s) for s in raw_nist if isinstance(s, str)}
+        # Replace this old line:
+    # scan_nist_bases_normalized = {normalize_control_id(item) for item in raw_nist if isinstance(item, str)}
+
+    # With this:
+    scan_normalized = {normalize_control_id(item) for item in raw_nist if isinstance(item, str)}
 
     
     if isinstance(baseline_data, list) and baseline_data:
@@ -66,15 +120,9 @@ def compare_against_new_baseline(scan_data, baseline_data):
             req = ctrl.get("control_id", "").strip()
             if not req:
                 continue
-            req_upper = req.upper()
 
-            # Has enhancement? Require exact match
-            has_enhancement = "(" in req or (len(req_upper) > 5 and req_upper[-1].isalpha())
-
-            if has_enhancement:
-                satisfied = req_upper in scan_nist_exact
-            else:
-                satisfied = extract_base_id(req) in scan_nist_bases
+            # Use normalized matching
+            satisfied = is_control_satisfied(req, scan_normalized)
 
             if satisfied:
                 met += 1
