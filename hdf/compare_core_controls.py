@@ -65,7 +65,11 @@ def compare_against_new_baseline(scan_data, baseline_data):
         return []
 
     results = []
-    for period in ["controls_this_year", "controls_next_year"]:
+
+    # DYNAMIC: Find all keys that contain "controls_"
+    period_keys = [k for k in baseline_obj.keys() if "controls_" in k.lower()]
+
+    for period in period_keys:
         controls = baseline_obj.get(period, [])
         total = len(controls)
         met = 0
@@ -81,7 +85,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
             # Default: exact normalized match
             satisfied = req_norm in scan_normalized
 
-            # If baseline requires only the base control, any enhancement satisfies it
+            # If required is base-only, any enhancement satisfies it
             if " (" not in req_norm:
                 base_req = req_norm
                 satisfied = any(
@@ -96,9 +100,12 @@ def compare_against_new_baseline(scan_data, baseline_data):
 
         coverage = round(met / total * 100, 2) if total else 0
 
+        # Friendly period name
+        period_name = period.replace("controls_", "").replace("_", " ").upper()
+
         results.append({
             "input_profile": profile_name,
-            "baseline_period": "This Year" if "this_year" in period else "Next Year",
+            "baseline_period": period_name,
             "required_controls": total,
             "controls_met": met,
             "coverage_percent": coverage,
@@ -108,28 +115,18 @@ def compare_against_new_baseline(scan_data, baseline_data):
     return results
 
 
-# Keep your write_xlsx and main() exactly as they are — they are fine
-# (no changes needed below this line)
-
 def write_xlsx(data: lib.List[lib.Dict[str, lib.Any]], out_path: lib.Path) -> None:
-    if not data:
-        df = lib.pd.DataFrame(columns=[
-            "Input Profile", "Baseline Period", "Required", "Met", "Coverage %", "Missing Controls"
-        ])
-    else:
-        rows = []
-        for row in data:
-            flat = {
-                "Input Profile": row["input_profile"],
-                "Baseline Period": row["baseline_period"],
-                "Required": row["required_controls"],
-                "Met": row["controls_met"],
-                "Coverage %": f"{row['coverage_percent']}%",
-                "Missing Controls": " | ".join(row["missing_controls"]) if row["missing_controls"] else "None"
-            }
-            rows.append(flat)
-        df = lib.pd.DataFrame(rows)
-
+    rows = []
+    for row in data:
+        rows.append({
+            "Input Profile": row["input_profile"],
+            "Baseline Period": row["baseline_period"],
+            "Required": row["required_controls"],
+            "Met": row["controls_met"],
+            "Coverage %": f"{row['coverage_percent']}%",
+            "Missing Controls": " | ".join(row["missing_controls"]) if row["missing_controls"] else "None"
+        })
+    df = lib.pd.DataFrame(rows or [{"Input Profile": "No data", "Baseline Period": "", "Required": 0, "Met": 0, "Coverage %": "0%", "Missing Controls": ""}])
     df.to_excel(out_path, index=False, engine="openpyxl")
 
 
@@ -155,10 +152,7 @@ def main():
         with out_path.open("w") as f:
             lib.json.dump(comparison, f, indent=2)
     else:
-        try:
-            write_xlsx(comparison, out_path)
-        except ImportError:
-            lib.sys.exit("Error: For XLSX output, run: pip install pandas openpyxl")
+        write_xlsx(comparison, out_path)
 
     for r in comparison:
         print(f"\n{r['baseline_period']} Baseline")
