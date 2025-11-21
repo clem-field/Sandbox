@@ -24,29 +24,69 @@ def load_json(path: lib.Path):
     with path.open("r", encoding="utf-8") as f:
         return lib.json.load(f)
 
+def normalize_nist(cid: str) -> str:
+    """
+    Normalizes ANY NIST control format to: "AC-11 (a)" or "AC-8 (c)"
+    Handles:
+      "AC-11 (a)" → "AC-11 (a)"
+      "AC-11 a"   → "AC-11 (a)"
+      "AC-11(a)"  → "AC-11 (a)"
+      "AC-11.a"   → "AC-11 (a)"
+      "AC-08.c.1" → "AC-8 (c 1)"   ← special case for multi-part
+      "AC-8 c 1"  → "AC-8 (c 1)"
+    """
+    if not cid:
+        return ""
+
+    c = cid.strip()
+    if ":" in c:
+        c = c.split(":", 1)[1].strip()
+
+    # Fix common AC-08.c.1 → AC-8 (c 1) style
+    c = lib.re.sub(r'^AC-0+(\d)', r'AC-\1', c)  # AC-08 → AC-8
+    c = lib.re.sub(r'\.(\d+)', r' \1', c)        # .1 →  1
+
+    # Find base control
+    base_match = lib.re.search(r'[A-Za-z]{1,4}-\d+(?:\(\d+\))?', c, lib.re.IGNORECASE)
+    if not base_match:
+        return c.upper()
+    base = base_match.group(0).upper()
+
+    # Everything after base is enhancement
+    after = c[base_match.end():].strip()
+    # Clean and standardize enhancement
+    enh = lib.re.sub(r'[\(\)\.\s]+', ' ', after)   # normalize separators
+    enh = lib.re.sub(r'\s+', ' ', enh).strip().lower()
+
+    if enh:
+        return f"{base} ({enh})"
+    return base
+
+
 def compare_against_new_baseline(scan_data, baseline_data):
     if not scan_data:
         print("No scan data")
         return []
 
-    
+    # --- Extract scan profile (robust) ---
     if isinstance(scan_data, dict):
         scan_profile = scan_data
     elif isinstance(scan_data, list):
-        while scan_data and isinstance(scan_data[0],  # flatten double lists
-            list):
+        while scan_data and isinstance(scan_data[0], list):
             scan_data = [item for sublist in scan_data for item in sublist]
         scan_profile = scan_data[0] if scan_data else {}
     else:
-        print("Unknown scan data format")
         return []
 
     profile_name = scan_profile.get("profile", "Unknown Scan")
     raw_nist = scan_profile.get("nist_controls", [])
-    scan_nist_exact = {s.strip().upper() for s in raw_nist if isinstance(s, str)}
-    scan_nist_bases = {extract_base_id(s) for s in raw_nist if isinstance(s, str)}
+    if not isinstance(raw_nist, list):
+        raw_nist = []
 
-    
+    # ONE normalized set from scan
+    scan_normalized = {normalize_nist(item) for item in raw_nist if isinstance(item, str)}
+
+    # --- Extract baseline ---
     if isinstance(baseline_data, list) and baseline_data:
         baseline_obj = baseline_data[0]
     elif isinstance(baseline_data, dict):
@@ -56,7 +96,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
         return []
 
     results = []
-    for period in ["controls_25.4", "controls_2026cmca"]:
+    for period in ["controls_this_year", "controls_next_year"]:
         controls = baseline_obj.get(period, [])
         total = len(controls)
         met = 0
@@ -66,15 +106,16 @@ def compare_against_new_baseline(scan_data, baseline_data):
             req = ctrl.get("control_id", "").strip()
             if not req:
                 continue
-            req_upper = req.upper()
 
-            # Has enhancement? Require exact match
-            has_enhancement = "(" in req or (len(req_upper) > 5 and req_upper[-1].isalpha())
+            req_norm = normalize_nist(req)
 
-            if has_enhancement:
-                satisfied = req_upper in scan_nist_exact
+            # If required has enhancement → exact normalized match
+            # Otherwise → base match (any enhancement satisfies)
+            if " (" in req_norm:
+                satisfied = req_norm in scan_normalized
             else:
-                satisfied = extract_base_id(req) in scan_nist_bases
+                base_req = req_norm
+                satisfied = any(s.startswith(base_req + " (") or s == base_req for s in scan_normalized)
 
             if satisfied:
                 met += 1
@@ -85,7 +126,7 @@ def compare_against_new_baseline(scan_data, baseline_data):
 
         results.append({
             "input_profile": profile_name,
-            "baseline_period": "This Year" if "controls_25.4" in period else "controls_2026cmca",
+            "baseline_period": "This Year" if "this_year" in period else "Next Year",
             "required_controls": total,
             "controls_met": met,
             "coverage_percent": coverage,
