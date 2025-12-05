@@ -1,0 +1,38 @@
+[
+    {
+        "controls_25.4": [
+            {
+                "control_id": "AC-11 (a)",
+                "control_name": "Access Enforcement",
+                "family": "Access Control",
+                "baseline": [
+                    "LOW",
+                    "MODERATE",
+                    "HIGH"
+                ]
+            }
+        ],
+        "controls_2026cmca": [
+            {
+                "control_id": "IA-5 (d)",
+                "control_name": "Access Enforcement",
+                "family": "Access Control",
+                "baseline": [
+                    "LOW",
+                    "MODERATE",
+                    "HIGH"
+                ]
+            },
+            {
+                "control_id": "AC-08.c.1",
+                "control_name": "Access Enforcement",
+                "family": "Access Control",
+                "baseline": [
+                    "LOW",
+                    "MODERATE",
+                    "HIGH"
+                ]
+            }
+        ]
+    }
+]

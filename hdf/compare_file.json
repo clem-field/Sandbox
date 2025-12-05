@@ -1,0 +1,17 @@
+[
+    {
+        "profile": "some profile",
+        "unique_checks": 466,
+        "missing_nist_controls": 0,
+        "unique_nist_controls": 116,
+        "nist_controls": [
+            "AC-10",
+            "AC-11 (1)",
+            "AC-11 a",
+            "AC-11 b",
+            "AC-12",
+            "AC-8 c 1"
+        ],
+        "missing_nist": []
+    }
+]

@@ -1,0 +1,38 @@
+[
+    {
+        "rules": [
+            {
+                "id": "AWS_ENSURE_IAM_AUTH>RDS",
+                "severity": "HIGH",
+                "dpath": "",
+                "description": "Ensure mappings of AWS Identity and Access Management (IAM) accounts to database accounts is enabled.",
+                "checkov_rule": "CKV_AWS_162",
+                "resource": [
+                    "aws_rds_cluster"
+                ]
+            },
+            {
+                "id": "AWS_AUTH_VERIFY_KUBERNETES_KBS_CLUSTER_ROLE",
+                "rule severity": "INFO",
+                "dpath": "True",
+                "description": "Ensure the role ARNs allowing the group system:masters are restricted to",
+                "checkov_rule": "",
+                "resource": [
+                    "kubernetes_config_map"
+                ]
+            },
+            {
+                "id": "AWS_SUBNETS_LB_IN_PROTECTED_HAS_EIP",
+                "severity": "HIGH",
+                "dpath": "",
+                "description": "Ensure Network load balancers in protected subnets use subnet_mapping blocks with allocations ids",
+                "checkov_rule": "",
+                "resource": [
+                    "aws_lb",
+                    "aws_alb",
+                    "aws_nlb"
+                ]
+            }
+        ]
+    }
+]
