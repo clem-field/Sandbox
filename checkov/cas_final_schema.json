@@ -1,0 +1,40 @@
+{
+    "metadata":{},
+    "schema_info":{},
+    "usage_guidelines":{},
+    "change_log":[],
+    "rules":[
+        {
+            "line": 1,
+            "rule_name": "AWS_SUBNETS_LB_IN_PROTECTED_HAS_EIP",
+            "severity": "HIGH",
+                "dpath": "",
+                "description": "Ensure Network load balancers in protected subnets use subnet_mapping blocks with allocations ids",
+                "checkov_rule": "",
+                "resource": [
+                    "aws_lb",
+                    "aws_alb",
+                    "aws_nlb"
+                ],
+            "nist_controls_r4": [],
+            "nist_controls_r5": [],
+            "secondary_controls": []
+        },
+        {
+            "line": 2,
+            "rule_name": "AWS_ENSURE_IAM_AUTH_RDS",
+            "severity": "HIGH",
+                "dpath": "",
+                "description": "Ensure Network load balancers in protected subnets use subnet_mapping blocks with allocations ids",
+                "checkov_rule": "",
+                "resource": [
+                    "aws_lb",
+                    "aws_alb",
+                    "aws_nlb"
+                ],
+            "nist_controls_r4": [],
+            "nist_controls_r5": [],
+            "secondary_controls": []
+        }
+    ]
+}

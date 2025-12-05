@@ -1,0 +1,22 @@
+{
+    "metadata":{},
+    "schema_info":{},
+    "usage_guidelines":{},
+    "change_log":[],
+    "rules":[
+        {
+            "line": 1,
+            "rule_name": "AWS_ENSURE_IAM_AUTH_RDS",
+            "nist_controls_r4": [],
+            "nist_controls_r5": [],
+            "secondary_controls": []
+        },
+        {
+            "line": 2,
+            "rule_name": "AWS_AUTH_VERIFY_KUBERNETES_KBS_CLUSTER_ROLE",
+            "nist_controls_r4": [],
+            "nist_controls_r5": [],
+            "secondary_controls": []
+        }
+    ]
+}

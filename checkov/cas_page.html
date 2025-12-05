@@ -1,0 +1,33 @@
+<html>
+
+<head>
+    <meta name="color-scheme" content="light dark">
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <pre>
+            "<?xml version='1.0' encoding='UTF-8'?>
+<rules>
+<rule severity="HIGH" id="AWS_ENSURE_IAM_AUTH>RDS">
+<resource>aws_rds_cluster</resource>
+<description>Ensure mappings of AWS Identity and Access Management (IAM) accounts to 
+database accounts is enabled.</description>
+<checkov_rule>CKV_AWS_162</checkov_rule>
+</rule>
+<rule severity="INFO" dpath="True" id="AWS_AUTH_VERIFY_KUBERNETES_KBS_CLUSTER_ROLE">
+<resource>kubernetes_config_map</resource>
+<description>Ensure the role ARNs allowing the group system:masters are restricted to</description>
+</rule>
+<rule severity="HIGH" id="AWS_SUBNETS_LB_IN_PROTECTED_HAS_EIP">
+<resource>aws_lb</resource>
+<resource>aws_alb</resource>
+<resource>aws_nlb</resource>
+<description>Ensure Network load balancers in protected subnets use subnet_mapping blocks with allocations ids</description>
+</rule>
+</rules>"
+        </pre>
+    <dif class="json-formatter-container"></dif>
+</body>
+
+</html>
