@@ -4,17 +4,14 @@ Convert rules.xml → cas_schema.json format
 Optionally export as JSON (exact schema), XLSX, and/or Markdown table
 Supports local files and remote URLs
 
-# All formats (recommended)
-python xml_to_cas.py --xml rules.xml --output my_security_rules --format all
+# From local file
+python xml_to_cas.py -i rules.xml -o myrules --format all
 
-# Only the official cas_schema.json
-python xml_to_cas.py --xml rules.xml --format json
+# From internal report portal
+python xml_to_cas.py -u https://cas-report.aws.pvt -o aws_report --format all
 
-# From a public GitHub URL
-python xml_to_cas.py \
-  --xml https://raw.githubusercontent.com/bridgecrewio/checkov/main/checkov/terraform/checks/resource/aws/RDSInstancePubliclyAccessible.xml \
-  --output rds_rules \
-  --format all
+# Raw XML from GitHub
+python xml_to_cas.py -u https://raw.githubusercontent.com/.../rules.xml --format json
 """
 
 
@@ -31,86 +28,52 @@ import re
 
 
 def is_likely_html(content: str) -> bool:
-    """Check if content is HTML (not raw XML)"""
-    content = content.strip().lower()
-    return content.startswith(("<!doctype", "<html", "<head", "<body"))
+    return content.strip().lower().startswith(("<!doctype", "<html", "<html", "<head", "<body"))
 
 
-def extract_xml_from_html(html_content: str) -> str:
-    """
-    Extract XML content from HTML page.
-    Looks for: <xml> tags, <pre> code blocks, downloadable links, or embedded data.
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')
+def extract_xml_from_html(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
 
-    # Method 1: Find <xml> or <pre> tags with XML-like content
-    xml_candidates = []
-    for tag in soup.find_all(['xml', 'pre', 'code']):
-        text = tag.get_text().strip()
-        if text.startswith('<?xml') or '<rules>' in text or '<rule' in text:
-            xml_candidates.append(text)
+    # 1. Look for <pre>, <code>, or <xml> blocks containing XML
+    for tag in soup.find_all(["pre", "code", "xml", "script"]):
+        text = tag.get_text()
+        if re.search(r'<rule\s', text) or "<rules>" in text:
+            return text.strip()
 
-    if xml_candidates:
-        # Return the longest/most complete one
-        return max(xml_candidates, key=len, default='')
+    # 2. Look for any large text block that starts with <?xml or <rules
+    text_blocks = soup.find_all(string=re.compile(r'<\?xml|<rules|<rule'))
+    if text_blocks:
+        return max(text_blocks, key=len).strip()
 
-    # Method 2: Look for links to XML files
-    links = [a.get('href') for a in soup.find_all('a', href=True) if 'xml' in a.get('href', '').lower()]
-    if links:
-        print(f"Found potential XML download links: {links}")
-        # Could auto-download first link; for now, suggest
-        return f"XML_LINKS:{';'.join(links)}"  # Placeholder for manual handling
-
-    # Method 3: Regex search for XML fragments (fallback)
-    xml_match = re.search(r'(<\?xml[^<]*<rules[^<]*>.*?</rules>)', html_content, re.DOTALL | re.IGNORECASE)
-    if xml_match:
-        return xml_match.group(1)
-
-    return ''  # No XML found
+    return ""
 
 
 def load_xml_content(source: str) -> str:
-    """Load XML from file, raw URL, or full web page (extracts from HTML)"""
     parsed = urlparse(source)
 
     if parsed.scheme in ("http", "https"):
-        print(f"Fetching page: {source}")
-
+        print(f"Fetching from URL: {source}")
         try:
-            resp = requests.get(
-                source,
-                timeout=30,
-                headers={"User-Agent": "xml-to-cas-extractor/1.0"}
-            )
+            resp = requests.get(source, timeout=40, headers={"User-Agent": "cas-converter/1.0"})
             resp.raise_for_status()
-        except requests.exceptions.SSLError as e:
-            print(f"SSL Error: {e}. Check if the site requires authentication or VPN.")
-            raise
-        except requests.exceptions.RequestException as e:
-            print(f"Fetch failed: {e}")
-            raise
+        except Exception as e:
+            raise ValueError(f"Failed to download from URL: {e}")
 
         content = resp.text
 
         if is_likely_html(content):
-            print("Detected HTML page. Attempting to extract embedded XML...")
-            extracted = extract_xml_from_html(content)
-            if extracted:
-                if extracted.startswith('XML_LINKS:'):
-                    raise ValueError(f"XML not embedded; download from links: {extracted}")
-                print("XML extracted successfully from page!")
-                return extracted
-            else:
-                # Save HTML for inspection
-                html_path = Path("debug_page.html")
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                print(f"No XML found on page. Saved raw HTML to '{html_path}' for manual review.")
-                print("Inspect it for <pre>, <xml> tags, or download links to rules.xml.")
-                raise ValueError("No extractable XML on the page.")
+            print("HTML page detected → attempting to extract embedded XML...")
+            xml = extract_xml_from_html(content)
+            if not xml:
+                Path("debug_report_page.html").write_text(content, encoding="utf-8")
+                raise ValueError(
+                    "No XML found in the HTML page. "
+                    "Saved page as 'debug_report_page.html' for inspection."
+                )
+            print("Successfully extracted XML from HTML page!")
+            return xml
         else:
-            # Assume it's raw XML
-            return content
+            return content  # raw XML
 
     else:
         # Local file
@@ -121,94 +84,87 @@ def load_xml_content(source: str) -> str:
         return path.read_text(encoding="utf-8")
 
 
-def xml_to_cas_rules(xml_source: str) -> List[Dict]:
-    """Convert XML content → list of rules in CAS schema format"""
-    content = load_xml_content(xml_source)
+def xml_to_cas_rules(source: str) -> List[Dict]:
+    content = load_xml_content(source)
 
     try:
         root = ET.fromstring(content)
     except ET.ParseError as e:
-        print(f"XML parse error: {e}")
-        print("Content preview:", content[:200])
-        raise
+        raise ValueError(f"Invalid XML content: {e}\nFirst 200 chars: {content[:200]}")
 
     rules = []
-    for rule_elem in root.findall(".//rule"):
-        rule_id = rule_elem.get("id")
+    for rule in root.findall(".//rule"):
+        rule_id = rule.get("id")
         if not rule_id:
             continue
 
-        description = rule_elem.findtext("description", "").strip()
-        checkov_rule = rule_elem.findtext("checkov_rule", "").strip()
+        resources = [r.text.strip() for r in rule.findall("resource") if r.text and r.text.strip()]
 
-        resources = [r.text.strip() for r in rule_elem.findall("resource") if r.text]
-
-        rule = {
+        rules.append({
             "id": rule_id,
-            "severity": rule_elem.get("severity"),
-            "dpath": rule_elem.get("dpath", ""),
-            "description": description,
-            "checkov_rule": checkov_rule,
-            "resource": resources or []
-        }
-
-        # Clean empty values
-        for k, v in rule.items():
-            if v == "":
-                rule[k] = ""
-
-        rules.append(rule)
+            "severity": rule.get("severity") or "",
+            "dpath": rule.get("dpath") or "",
+            "description": (rule.findtext("description") or "").strip(),
+            "checkov_rule": (rule.findtext("checkov_rule") or "").strip(),
+            "resource": resources
+        })
 
     return rules
 
 
-# Output functions (unchanged from previous)
+# Output functions
 def save_cas_json(path: Path, rules: List[Dict]):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump([{"rules": rules}], f, indent=2, ensure_ascii=False)
-    print(f"CAS JSON  → {path}")
+    json.dump([{"rules": rules}], path.open("w", encoding="utf-8"), indent=2, ensure_ascii=False)
+    print(f"CAS Schema JSON → {path}")
 
 def save_xlsx(path: Path, rules: List[Dict]):
-    df = pd.DataFrame(rules)
-    cols = ["id", "severity", "description", "checkov_rule", "dpath", "resource"]
-    df[cols].to_excel(path, index=False)
-    print(f"Excel     → {path}")
+    pd.DataFrame(rules)[["id", "severity", "description", "checkov_rule", "dpath", "resource"]].to_excel(path, index=False)
+    print(f"Excel (XLSX)    → {path}")
 
 def save_markdown(path: Path, rules: List[Dict]):
     df = pd.DataFrame(rules)[["id", "severity", "description", "checkov_rule", "resource"]]
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("# Security Rules (Extracted from Report)\n\n")
-        f.write(df.to_markdown(index=False))
-    print(f"Markdown  → {path}")
+    path.write_text("# CAS Security Rules\n\n" + df.to_markdown(index=False), encoding="utf-8")
+    print(f"Markdown        → {path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract XML rules from web pages/files → CAS schema + formats")
-    parser.add_argument("--source", required=True, help="URL to page (e.g., https://cas-report.aws.pvt) or path/URL to rules.xml")
-    parser.add_argument("--output", "-o", default="cas_schema", help="Output base name")
-    parser.add_argument("--format", choices=["json", "xlsx", "md", "all"], default="all")
+    parser = argparse.ArgumentParser(
+        description="Convert rules.xml → cas_schema.json (from file or web report)"
+    )
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-i", "--input-file", help="Path to local rules.xml file")
+    group.add_argument("-u", "--url", help="URL to report page (e.g. https://cas-report.aws.pvt) or raw XML")
+
+    parser.add_argument("-o", "--output", default="cas_schema", help="Output base name (default: cas_schema)")
+    parser.add_argument("--format", choices=["json", "xlsx", "md", "all"], default="all",
+                        help="Output format(s)")
 
     args = parser.parse_args()
 
-    print("Starting extraction...\n")
-    rules = xml_to_cas_rules(args.source)
-    print(f"Successfully extracted {len(rules)} rules\n")
+    source = args.input_file or args.url
+
+    print(f"Source: {source}\n")
+    rules = xml_to_cas_rules(source)
+    print(f"Extracted {len(rules)} rules\n")
 
     base = Path(args.output)
-    fmts = [args.format] if args.format != "all" else ["json", "xlsx", "md"]
+    formats = [args.format] if args.format != "all" else ["json", "xlsx", "md"]
 
-    for fmt in fmts:
+    for fmt in formats:
         if fmt == "json": save_cas_json(base.with_suffix(".json"), rules)
         if fmt == "xlsx": save_xlsx(base.with_suffix(".xlsx"), rules)
-        if fmt == "md":    save_markdown(base.with_suffix(".md"), rules)
+        if fmt == "md":   save_markdown(base.with_suffix(".md"), rules)
 
-    print("\nExtraction complete!")
+    print("\nConversion complete!")
 
 
 if __name__ == "__main__":
     try:
-        import pandas, bs4  # noqa
+        import pandas as pd
+        from bs4 import BeautifulSoup
     except ImportError:
-        print("Run: pip install pandas openpyxl requests beautifulsoup4 lxml")
+        print("Install dependencies:")
+        print("pip install pandas openpyxl requests beautifulsoup4 lxml")
         exit(1)
     main()
