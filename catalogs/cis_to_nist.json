@@ -1,0 +1,45 @@
+[
+    {
+        "version": "CIS Controls v8.1",
+        "date_created": "12/8/2025",
+        "notes": "generic input",
+        "groups": [
+            {
+                "cis_control": 1,
+                "cis_sub_controls": [
+                    {
+                        "safeguard": "1.1",
+                        "details": [
+                            {
+                                "asset_type": "Devices",
+                                "security_function": "Identify",
+                                "title": "Establish and Maintain Detailed Enterprise Asset Inventory",
+                                "description": "Establish and maintain an accurate, detailed, and up-to-date inventory of all enterprise assets with the potential to store or process data, to include: end-user devices (including portable and mobile), network devices, non-computing/IoT devices, and servers. Ensure the inventory records the network address (if static), hardware address, machine name, enterprise asset owner, department for each asset, and whether the asset has been approved to connect to the network. For mobile end-user devices, MDM type tools can support this process, where appropriate. This inventory includes assets connected to the infrastructure physically, virtually, remotely, and those within cloud environments. Additionally, it includes assets that are regularly connected to the enterprise’s network infrastructure, even if they are not under control of the enterprise. Review and update the inventory of all enterprise assets bi-annually, or more frequently.",
+                                "nist_controls": [
+                                    {
+                                        "nist_control": "CM-8",
+                                        "enhancement_name": "System Component Inventory",
+                                        "relationship": "Subset",
+                                        "ig1": true,
+                                        "ig2": true,
+                                        "ig3": true,
+                                        "control": "a. Develop and document an inventory of system components that:\n1. Accurately reflects the system\n2. Includes all components within the system"
+                                    },
+                                    {
+                                        "nist_control": "CM-8(1)",
+                                        "enhancement_name": "System Component Inventory | Updates During Installation and Removal",
+                                        "relationship": "Subset",
+                                        "ig1": true,
+                                        "ig2": true,
+                                        "ig3": true,
+                                        "control": "Update the inventory of system components as part of component installations, removals, and system updates."
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
