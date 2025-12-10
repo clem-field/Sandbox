@@ -1,0 +1,28 @@
+{
+  "comparison_summary": {
+    "input_profile": "Web Server Hardening",
+    "compare_profile": "CIS Level 1",
+    "total_in_input": 122,
+    "total_in_compare": 116,
+    "unique_to_input_count": 10,
+    "unique_to_compare_count": 4,
+    "overlapping_count": 112
+  },
+  "unique_to_input": [
+    "AC-20 (2)",
+    "IA-5 (1) (c)",
+    "SC-13",
+    "SI-4 (11)"
+  ],
+  "unique_to_compare": [
+    "AC-11 (1)",
+    "AC-12"
+  ],
+  "overlapping_controls": [
+    "AC-10",
+    "AC-11 a",
+    "AC-11 b",
+    "AC-8 c 1",
+    "..."
+  ]
+}
