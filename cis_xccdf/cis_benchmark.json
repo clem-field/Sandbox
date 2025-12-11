@@ -8,6 +8,7 @@
             "recommendations": [
                 {
                     "recommendation": "1.1.1",
+                    "profile": "Level 1 - Domain Controller",
                     "title": "(L1) Ensure 'Enforce password history' is set to '24 or more password(s)'",
                     "assessment_status": "Automated",
                     "description": "This policy setting determines the number of renewed, unique passwords that have to be associated with a user account before you can reuse an old password. The value for this policy setting must be between 0 and 24 passwords. The default value for stand-alone systems is 0 passwords, but the default setting when joined to a domain is 24 passwords. To maintain the effectiveness of this policy setting, use the Minimum password age setting to prevent users from repeatedly changing their password.\nThe recommended state for this setting is: `24 or more password(s)`.\n**Note:** Password Policy settings (section 1.1) and Account Lockout Policy settings (section 1.2) must be applied via the **Default Domain Policy** GPO in order to be globally in effect on **domain** user accounts as their default behavior. If these settings are configured in another GPO, they will only affect **local** user accounts on the computers that receive the GPO. However, custom exceptions to the default password policy and account lockout policy rules for specific domain users and/or groups can be defined using Password Settings Objects (PSOs), which are completely separate from Group Policy and most easily configured using Active Directory Administrative Center.\n**Note #2:** As of the publication of this benchmark, Microsoft currently has a maximum limit of 24 saved passwords. For more information, please visit [Enforce password history (Windows 10) - Windows security | Microsoft Docs](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/enforce-password-history#:~:text=The%20Enforce%20password%20history%20policy,a%20long%20period%20of%20time.)",
@@ -55,10 +56,12 @@
                         }
                     ],
                     "references": "https://www.cisecurity.org/white-papers/cis-password-policy-guide/",
-                    "default_value":"24 passwords remembered on domain members. 0 passwords remembered on stand-alone servers."
+                    "default_value":"24 passwords remembered on domain members. 0 passwords remembered on stand-alone servers.",
+                    "nist_controls": []
                 },
                 {
                     "recommendation": "1.1.2",
+                    "profile": "Level 1 - Domain Controller",
                     "title": "(L1) Ensure 'Maximum password age' is set to '365 or fewer days, but not 0'",
                     "assessment_status": "Automated",
                     "description": "This policy setting defines how long a user can use their password before it expires.\nValues for this policy setting range from 0 to 999 days. If you set the value to 0, the password will never expire.\nBecause attackers can crack passwords, the more frequently you change the password the less opportunity an attacker has to use a cracked password. However, the lower this value is set, the higher the potential for an increase in calls to help desk support due to users having to change their password or forgetting which password is current.\nThe recommended state for this setting is `365 or fewer days, but not 0`.\n\n**Note:** Password Policy settings (section 1.1) and Account Lockout Policy settings (section 1.2) must be applied via the **Default Domain Policy** GPO in order to be globally in effect on **domain** user accounts as their default behavior. If these settings are configured in another GPO, they will only affect **local** user accounts on the computers that receive the GPO. However, custom exceptions to the default password policy and account lockout policy rules for specific domain users and/or groups can be defined using Password Settings Objects (PSOs), which are completely separate from Group Policy and most easily configured using Active Directory Administrative Center.",
@@ -106,7 +109,8 @@
                         }
                     ],
                     "references": "https://www.cisecurity.org/white-papers/cis-password-policy-guide/",
-                    "default_value":"42 days."
+                    "default_value":"42 days.",
+                    "nist_controls": []
                 }
             ]
         }
