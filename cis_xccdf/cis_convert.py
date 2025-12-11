@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 import libraries as lib
 
-# Make current sheet name available globally for profile fallback
-CURRENT_SHEET_NAME = ""
-
 COLUMN_MAP = {
     "section":           ["Section #"],
     "recommendation":    ["Recommendation #", "Rec #"],
-    "profile":           ["Profile"],                         # Only in Combined Profiles
+    "profile":           ["Profile"],
     "title":             ["Title"],
     "assessment_status": ["Assessment Status"],
     "description":       ["Description"],
@@ -21,7 +18,7 @@ COLUMN_MAP = {
     "v8_sg2":            ["CIS Safeguards 2 (v8)"],
     "v8_sg3":            ["CIS Safeguards 3 (v8)"],
     "v8_ig1":            ["v8 IG1"],
-    "v8_ig2":            ["v8 IG2"],
+    "v8_ig2":             ["v8 IG2"],
     "v8_ig3":            ["v8 IG3"],
     "v7_sg1":            ["CIS Safeguards 1 (v7)"],
     "v7_sg2":            ["CIS Safeguards 2 (v7)"],
@@ -46,9 +43,6 @@ def build_columns(header_row):
         cols[name] = find_column(header_row, keys)
     return cols
 
-# ----------------------------------------------------------------------
-# Parse ALL CIS Controls correctly (supports 1–4+ per recommendation)
-# ----------------------------------------------------------------------
 def parse_cis_controls(text):
     if not text or not isinstance(text, str) or not text.strip():
         return []
@@ -56,17 +50,14 @@ def parse_cis_controls(text):
     controls = []
     text = text.strip()
 
-    # Extract all TITLE blocks (they apply to following CONTROLs)
     title_blocks = [m.group(1).strip() for m in lib.re.finditer(r'TITLE:\s*([^;]+)', text, lib.re.IGNORECASE)]
     title_idx = 0
 
-    # Extract all CONTROL entries
     for match in lib.re.finditer(r'CONTROL:\s*v?(\d)\s+([\d.]+)\s+DESCRIPTION:\s*([^;]+)', text):
         version_num = match.group(1)
         control_num = match.group(2).strip()
         description = match.group(3).strip()
 
-        # Get title: use current title block, advance only when version changes or end
         title = title_blocks[title_idx] if title_idx < len(title_blocks) else "Explicitly Not Mapped"
         controls.append({
             "cis_control": control_num,
@@ -75,22 +66,17 @@ def parse_cis_controls(text):
             "description": description
         })
 
-        # Advance title index only if next control is different version (or last one)
+        # Advance title only when version changes or end
         if title_idx + 1 < len(title_blocks):
-            # Peek ahead
-            next_match = lib.re.finditer(r'CONTROL:\s*v?(\d)', text[match.end():])
             try:
-                next_ver = next(next_match).group(1)
-                if next_ver != version_num:
+                next_match = list(lib.re.finditer(r'CONTROL:\s*v?(\d)', text[match.end():]))[0]
+                if next_match.group(1) != version_num:
                     title_idx += 1
             except:
-                title_idx += 1  # end of string
+                title_idx += 1
 
     return controls
 
-# ----------------------------------------------------------------------
-# Safeguards (clean numbers + IG flags)
-# ----------------------------------------------------------------------
 def parse_safeguards(row, col):
     def val(name, default=""):
         i = col.get(name)
@@ -121,17 +107,13 @@ def parse_safeguards(row, col):
         }]
     }
 
-# ----------------------------------------------------------------------
-# Smart Profile Detection: Profile from Excel OR sheet name
-# ----------------------------------------------------------------------
-def detect_profile(ws, cells, col_idx):
-    # 1. Combined Profiles sheet + Profile column → use Excel value
-    if ws.title == "Combined Profiles" and col_idx.get("profile") is not None:
-        idx = col_idx["profile"]
+def detect_profile(ws, cells, col):
+    if ws.title == "Combined Profiles" and col.get("profile") is not None:
+        idx = col["profile"]
         if len(cells) > idx and cells[idx].value:
             return str(cells[idx].value).strip()
 
-    # 2. Fallback: infer from sheet name
+    # Fallback mapping from sheet name
     name = ws.title
     mapping = {
         "Level 1 - Domain Controller": "Level 1 - Domain Controller",
@@ -142,17 +124,9 @@ def detect_profile(ws, cells, col_idx):
     for key, value in mapping.items():
         if key in name:
             return value
-
-    # 3. Final fallback: use sheet name as-is
     return name
 
-# ----------------------------------------------------------------------
-# Main parsing loop
-# ----------------------------------------------------------------------
 def parse_sheet(ws):
-    global CURRENT_SHEET_NAME
-    CURRENT_SHEET_NAME = ws.title
-
     rows = list(ws.rows)
     if not rows:
         return []
@@ -161,10 +135,13 @@ def parse_sheet(ws):
     col = build_columns(header)
 
     if col["recommendation"] is None:
-        raise RuntimeError("Could not find 'Recommendation #' column")
+        raise RuntimeError("Missing 'Recommendation #' column")
 
     sections = lib.defaultdict(list)
-    seen = set()
+
+    # Unique key is (recommendation_number, profile) when on Combined sheet
+    # On single-profile sheets, profile is same → no conflict
+    seen_keys = set()
 
     for row in rows[1:]:
         cells = list(row)
@@ -175,9 +152,14 @@ def parse_sheet(ws):
         rec_num = str(rec_cell.value).strip()
         if not lib.re.match(r"^\d+(\.\d+)+$", rec_num):
             continue
-        if rec_num in seen:
+
+        profile = detect_profile(ws, cells, col)
+
+        # Unique key: (rec_num + profile
+        unique_key = f"{rec_num}|{profile}"
+        if unique_key in seen_keys:
             continue
-        seen.add(rec_num)
+        seen_keys.add(unique_key)
 
         def get(name, default=""):
             i = col.get(name)
@@ -186,11 +168,9 @@ def parse_sheet(ws):
             v = cells[i].value
             return str(v).strip() if v is not None else default
 
-        profile = detect_profile(ws, cells, col)
-
         rec_data = {
             "recommendation": rec_num,
-            "profile": profile,                                   # ← Perfect!
+            "profile": profile,
             "title": get("title"),
             "assessment_status": get("assessment_status"),
             "description": get("description"),
@@ -203,28 +183,23 @@ def parse_sheet(ws):
             "cis_safeguards": [parse_safeguards(cells, col)],
             "references": get("references"),
             "default_value": get("default_value"),
-            "nist_controls": []                                    # ← As requested
+            "nist_controls": []
         }
 
         section_key = ".".join(rec_num.split(".")[:-1])
         sections[section_key].append(rec_data)
 
-    # Sort everything beautifully
+    # Sort everything
     result = []
     for sec in sorted(sections.keys(), key=lambda x: [int(p) for p in x.split('.')]):
-        recs = sorted(sections[sec], key=lambda x: [int(p) for p in x["recommendation"].split('.')])
+        recs = sorted(sections[sec], key=lambda x: (x["recommendation"], x["profile"]))
         result.append({"section": sec, "recommendations": recs})
 
     return result
 
-# ----------------------------------------------------------------------
-# Entry point
-# ----------------------------------------------------------------------
 def main():
-    parser = lib.argparse.ArgumentParser(
-        description="CIS Benchmark XLSX → Perfect JSON (with profile support)"
-    )
-    parser.add_argument("-i", "--input", required=True, help="Input .xlsx file")
+    parser = lib.argparse.ArgumentParser(description="CIS Benchmark → Perfect JSON (Combined Profiles ready)")
+    parser.add_argument("-i", "--input", required=True)
     parser.add_argument("-b", "--benchmark", required=True)
     parser.add_argument("-v", "--version", required=True)
     parser.add_argument("-p", "--published", required=True)
@@ -237,12 +212,12 @@ def main():
 
     sheet_name = args.sheet or "Combined Profiles"
     if sheet_name not in wb.sheetnames:
-        print(f"Error: Sheet '{sheet_name}' not found!")
-        print("Available sheets:", wb.sheetnames)
+        print(f"Sheet '{sheet_name}' not found!")
+        print("Available:", wb.sheetnames)
         exit(1)
 
     ws = wb[sheet_name]
-    print(f"Parsing sheet: '{sheet_name}'")
+    print(f"Parsing: '{sheet_name}'")
 
     sections = parse_sheet(ws)
 
@@ -254,7 +229,7 @@ def main():
     }
 
     lib.Path(args.output).write_text(lib.json.dumps(output, indent=4, ensure_ascii=False))
-    print(f"SUCCESS! {len(sections)} sections written to {args.output}")
+    print(f"PERFECT! {len(sections)} sections → {args.output}")
 
 if __name__ == "__main__":
     main()
