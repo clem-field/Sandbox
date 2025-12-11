@@ -1,0 +1,63 @@
+{
+    "benchmark": "CIS Microsoft Windows Server 2019",
+    "version": "v3.0.1",
+    "published": "7/22/2025",
+    "sections": [
+        {
+            "section": "18.7",
+            "recommendations": [
+                {
+                    "recommendation": "18.7.6",
+                    "title": "",
+                    "assessment_status": "",
+                    "description": "",
+                    "rational_statement": "",
+                    "impact_statement": "",
+                    "remediation_procedure": "",
+                    "audit_procedure": "",
+                    "additional_information": "",
+                    "cis_controls": [
+                        {
+                            "cis_control": "0.0",
+                            "cis_version": "v8",
+                            "title": "",
+                            "description": "" 
+                        },
+                        {
+                            "cis_control": "0.0",
+                            "cis_version": "v7",
+                            "title": "",
+                            "description": "" 
+                        }
+                    ],
+                    "cis_safeguards": [
+                        {
+                            "v8":[
+                                {
+                                    "safeguard_1": "",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": true,
+                                    "IG2": false,
+                                    "IG3": true
+                                }
+                            ],
+                            "v7": [
+                                {
+                                    "safeguard_1": "",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": true,
+                                    "IG2": false,
+                                    "IG3": true
+                                }
+                            ]
+                        }
+                    ],
+                    "references": "",
+                    "default_value":""
+                }
+            ]
+        }
+    ]
+}
