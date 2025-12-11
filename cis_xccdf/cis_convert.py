@@ -1,9 +1,67 @@
 #!/usr/bin/env python3
+# cis_convert.py
+# Works with ALL CIS Windows Server 2019/2022/2025 benchmark sheets
+# Auto-detects column positions – no more hard-coded indices!
+
 import libraries as lib
 
+# ----------------------------------------------------------------------
+# Column name → expected header text (case-insensitive, partial match ok)
+# ----------------------------------------------------------------------
+COLUMN_MAP = {
+    "section":              ["Section #"],
+    "recommendation":       ["Recommendation #", "Rec #"],
+    "profile":              ["Profile"],                     # only in Combined Profiles
+    "title":                ["Title"],
+    "assessment_status":    ["Assessment Status"],
+    "description":          ["Description"],
+    "rationale":            ["Rationale Statement", "Rationale"],
+    "impact":               ["Impact Statement", "Impact"],
+    "remediation":          ["Remediation Procedure", "Remediation"],
+    "audit":                ["Audit Procedure", "Audit"],
+    "additional_info":      ["Additional Information"],
+    "cis_controls":         ["CIS Controls"],
+    # Safeguards – v8
+    "v8_sg1":               ["CIS Safeguards 1 (v8", "CIS Safeguards 1 (v8)"],
+    "v8_sg2":               ["CIS Safeguards 2 (v8)"],
+    "v8_sg3":               ["CIS Safeguards 3 (v8)"],
+    "v8_ig1":               ["v8 IG1"],
+    "v8_ig2":               ["v8 IG2"],
+    "v8_ig3":               ["v8 IG3"],
+    # Safeguards – v7
+    "v7_sg1":               ["CIS Safeguards 1 (v7)"],
+    "v7_sg2":               ["CIS Safeguards 2 (v7)"],
+    "v7_sg3":               ["CIS Safeguards 3 (v7)"],
+    "v7_ig1":               ["v7 IG1"],
+    "v7_ig2":               ["v7 IG2"],
+    "v7_ig3":               ["v7 IG3"],
+    "references":           ["References"],
+    "default_value":        ["Default Value"],
+}
+
+def find_column_index(header_row, keys):
+    """Return the first column index that matches any of the keys (case-insensitive)"""
+    header_values = [str(cell.value or "").strip().lower() for cell in header_row]
+    for idx, val in enumerate(header_values):
+        if any(key.lower() in val for key in keys):
+            return idx
+    return None
+
+def build_column_indices(header_row):
+    """Detect all required column positions from the header row"""
+    indices = {}
+    for name, keys in COLUMN_MAP.items():
+        idx = find_column_index(header_row, keys)
+        if idx is None:
+            print(f"Warning: Column not found for: {name} (looked for {keys})")
+        indices[name] = idx
+    return indices
+
+# ----------------------------------------------------------------------
+# Parsing helpers
+# ----------------------------------------------------------------------
 def parse_cis_controls(text):
-    """Parse CIS Controls column correctly → clean v8 and v7 entries"""
-    if not text or not isinstance(text, str):
+    if not text or not isinstance(text, str) or not text.strip():
         return [
             {"cis_control": "0.0", "cis_version": "v8", "title": "", "description": ""},
             {"cis_control": "0.0", "cis_version": "v7", "title": "", "description": ""}
@@ -12,126 +70,125 @@ def parse_cis_controls(text):
     v8 = {"cis_control": "0.0", "cis_version": "v8", "title": "", "description": ""}
     v7 = {"cis_control": "0.0", "cis_version": "v7", "title": "", "description": ""}
 
-    # Extract TITLE first (shared across controls)
-    title_match = lib.re.search(r'TITLE:([^;]+?)(?=;\s*TITLE:|;*$)', text.strip())
+    # Shared title (usually the same for v7 and v8)
+    title_match = lib.re.search(r'TITLE:\s*([^;]+)', text, lib.re.IGNORECASE)
     shared_title = title_match.group(1).strip() if title_match else ""
 
-    # Match CONTROL:v8 X.X and CONTROL:v7 X.X
-    for match in lib.re.finditer(r'CONTROL:\s*v?(\d)\s+([\d.]+)\s+DESCRIPTION:([^;]+)', text):
-        version, number, desc = match.group(1), match.group(2).strip(), match.group(3).strip()
-        title = shared_title or "Explicitly Not Mapped"
-
+    for m in lib.re.finditer(r'CONTROL:\s*v?(\d)\s+([\d.]+)\s+DESCRIPTION:\s*([^;]+)', text):
+        ver, num, desc = m.group(1), m.group(2).strip(), m.group(3).strip()
         entry = {
-            "cis_control": number,
-            "title": title,
+            "cis_control": num,
+            "title": shared_title or "Explicitly Not Mapped",
             "description": desc.strip()
         }
-
-        if version == "8":
+        if ver == "8":
             v8 = entry
-        elif version == "7":
+        elif ver == "7":
             v7 = entry
 
     return [v8, v7]
 
+def parse_safeguards(row, idx):
+    def val(col_name, default=""):
+        i = idx[col_name]
+        if i is None or len(row) <= i:
+            return default
+        v = row[i].value
+        return str(v).strip() if v is not None else default
 
-def parse_safeguards(row):
-    """
-    Parse correct safeguard columns:
-    Col 12–14: v8 Safeguard 1/2/3
-    Col 15–17: v8 IG1/IG2/IG3 (X = true)
-    Col 18–20: v7 Safeguard 1/2/3
-    Col 21–23: v7 IG1/IG2/IG3
-    """
-    def get(idx, default=""):
-        return str(row[idx].value).strip() if len(row) > idx and row[idx].value else default
-
-    def is_x(idx):
-        return len(row) > idx and row[idx].value == "X"
+    def is_x(col_name):
+        i = idx[col_name]
+        return i is not None and len(row) > i and row[i].value == "X"
 
     return {
         "v8": [{
-            "safeguard_1": get(12),   # v8 Safeguard 1
-            "safeguard_2": get(13),
-            "safeguard_3": get(14),
-            "IG1": is_x(15),
-            "IG2": is_x(16),
-            "IG3": is_x(17),
+            "safeguard_1": val("v8_sg1"),
+            "safeguard_2": val("v8_sg2"),
+            "safeguard_3": val("v8_sg3"),
+            "IG1": is_x("v8_ig1"),
+            "IG2": is_x("v8_ig2"),
+            "IG3": is_x("v8_ig3"),
         }],
         "v7": [{
-            "safeguard_1": get(18),   # v7 Safeguard 1
-            "safeguard_2": get(19),
-            "safeguard_3": get(20),
-            "IG1": is_x(21),
-            "IG2": is_x(22),
-            "IG3": is_x(23),
+            "safeguard_1": val("v7_sg1"),
+            "safeguard_2": val("v7_sg2"),
+            "safeguard_3": val("v7_sg3"),
+            "IG1": is_x("v7_ig1"),
+            "IG2": is_x("v7_ig2"),
+            "IG3": is_x("v7_ig3"),
         }]
     }
 
-
-def extract_section_and_rec(cells):
-    if len(cells) < 2:
-        return None, None
-    sec = cells[0].value
-    rec = cells[1].value
-    if not sec or not rec:
-        return None, None
-
-    sec = str(sec).strip()
-    rec = str(rec).strip()
-
-    if not lib.re.match(r"^\d+(\.\d+)+$", rec):
-        return None, None
-
-    # Use parent of recommendation as section (e.g. 18.7.6 → section 18.7)
-    parts = rec.split(".")
-    section = ".".join(parts[:-1])
-    return section, rec
-
-
+# ----------------------------------------------------------------------
+# Main parsing logic
+# ----------------------------------------------------------------------
 def parse_sheet(ws):
-    seen = set()
-    sections = lib.defaultdict(list)
     rows = list(ws.rows)
+    if not rows:
+        return []
 
-    for row in rows[1:]:  # skip header
+    header_row = rows[0]
+    col_idx = build_column_indices(header_row)
+
+    # Required columns – if any are missing we abort
+    required = ["section", "recommendation", "title", "cis_controls"]
+    missing = [name for name in required if col_idx[name] is None]
+    if missing:
+        raise RuntimeError(f"Missing required columns in sheet: {missing}")
+
+    sections = lib.defaultdict(list)
+    seen_recs = set()
+
+    for row in rows[1:]:
         cells = list(row)
-        if len(cells) < 20:
-            continue
-        if all(c.value in (None, "", " ") for c in cells[:10]):
+
+        sec_idx = col_idx["section"]
+        rec_idx = col_idx["recommendation"]
+        if sec_idx is None or rec_idx is None or len(cells) <= max(sec_idx, rec_idx):
             continue
 
-        section_num, rec_num = extract_section_and_rec(cells)
-        if not section_num or not rec_num:
+        section_num = str(cells[sec_idx].value or "").strip()
+        rec_num     = str(cells[rec_idx].value or "").strip()
+
+        if not rec_num or not lib.re.match(r"^\d+(\.\d+)+$", rec_num):
             continue
 
-        # DEDUPLICATION: same rec ID = same recommendation
-        rec_key = rec_num
-        if rec_key in seen:
-            continue  # skip duplicates
-        seen.add(rec_key)
+        # Deduplicate – same recommendation number = same item
+        if rec_num in seen_recs:
+            continue
+        seen_recs.add(rec_num)
+
+        # Build recommendation object safely
+        def get(col_name, default=""):
+            i = col_idx.get(col_name)
+            if i is None or len(cells) <= i:
+                return default
+            v = cells[i].value
+            return str(v).strip() if v is not None else default
 
         rec_data = {
             "recommendation": rec_num,
-            "title": str(cells[3].value or "").strip(),
-            "assessment_status": str(cells[4].value or ""),
-            "description": str(cells[5].value or ""),
-            "rational_statement": str(cells[6].value or ""),
-            "impact_statement": str(cells[7].value or ""),
-            "remediation_procedure": str(cells[8].value or ""),
-            "audit_procedure": str(cells[9].value or ""),
-            "additional_information": str(cells[10].value or ""),
-            "cis_controls": parse_cis_controls(cells[11].value),
-            "cis_safeguards": [parse_safeguards(cells)],
-            "references": str(cells[-2].value or ""),
-            "default_value": str(cells[-1].value or "")
+            "title": get("title"),
+            "assessment_status": get("assessment_status"),
+            "description": get("description"),
+            "rational_statement": get("rationale"),
+            "impact_statement": get("impact"),
+            "remediation_procedure": get("remediation"),
+            "audit_procedure": get("audit"),
+            "additional_information": get("additional_info"),
+            "cis_controls": parse_cis_controls(get("cis_controls")),
+            "cis_safeguards": [parse_safeguards(cells, col_idx)],
+            "references": get("references"),
+            "default_value": get("default_value")
         }
 
-        sections[section_num].append(rec_data)
+        # Determine section – use parent of recommendation (e.g. 18.7.6 → section 18.7)
+        section_key = ".".join(rec_num.split(".")[:-1])
+        sections[section_key].append(rec_data)
 
-    # Sort sections and recommendations numerically
+    # Sort everything numerically
     result = []
-    for sec in sorted(sections, key=lambda x: [int(p) for p in x.split('.')]):
+    for sec in sorted(sections.keys(), key=lambda x: [int(p) for p in x.split('.')]):
         recs = sorted(
             sections[sec],
             key=lambda x: [int(p) for p in x["recommendation"].split('.')]
@@ -140,15 +197,19 @@ def parse_sheet(ws):
 
     return result
 
-
+# ----------------------------------------------------------------------
+# Entry point
+# ----------------------------------------------------------------------
 def main():
-    parser = lib.argparse.ArgumentParser(description="CIS Benchmark XLSX → Clean JSON")
-    parser.add_argument("-i", "--input", required=True)
+    import libraries as lib
+
+    parser = lib.argparse.ArgumentParser(description="CIS Benchmark → Clean JSON (auto column detection)")
+    parser.add_argument("-i", "--input", required=True, help="Input .xlsx file")
     parser.add_argument("-b", "--benchmark", required=True)
     parser.add_argument("-v", "--version", required=True)
     parser.add_argument("-p", "--published", required=True)
     parser.add_argument("-o", "--output", required=True)
-    parser.add_argument("-s", "--sheet", help="Sheet name, e.g. 'Level 1 - Member Server'")
+    parser.add_argument("-s", "--sheet", help='Sheet name, e.g. "Level 1 - Member Server"')
 
     args = parser.parse_args()
 
@@ -156,11 +217,12 @@ def main():
 
     sheet_name = args.sheet or "Combined Profiles"
     if sheet_name not in wb.sheetnames:
-        print(f"Sheet '{sheet_name}' not found. Available: {wb.sheetnames}")
+        print(f"Error: Sheet '{sheet_name}' not found!")
+        print("Available sheets:", wb.sheetnames)
         exit(1)
 
     ws = wb[sheet_name]
-    print(f"Parsing: {sheet_name}")
+    print(f"Parsing sheet: '{sheet_name}'")
 
     sections = parse_sheet(ws)
 
@@ -172,8 +234,7 @@ def main():
     }
 
     lib.Path(args.output).write_text(lib.json.dumps(output, indent=4, ensure_ascii=False))
-    print(f"Success: {len(sections)} sections → {args.output}")
-
+    print(f"Success! {len(sections)} sections → {args.output}")
 
 if __name__ == "__main__":
     main()
