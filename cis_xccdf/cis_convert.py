@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-CIS Benchmark Excel to JSON Converter (uv / lib. prefixed environment)
-
-Usage:
-    python cis_convert.py -i input.xlsx -b "CIS Microsoft Windows Server 2019" -v "v3.0.1" -p "7/22/2025" -o output.json
-"""
-
 import libraries as lib
 
 def parse_cis_controls(controls_text):
