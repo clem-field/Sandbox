@@ -1,14 +1,5 @@
 import libraries as lib
-"""
-# Default behavior
-python cis_to_nist.py -i CIS_800-53_Mapping.xlsx
-
-# Custom version + notes
-python cis_to_nist.py -i file.xlsx -v "CIS Controls v8.1 (Custom Build)" -n "Internal compliance mapping – Q4 2025"
-
-# Full example
-python cis_to_nist.py -i CIS_Controls_v8.1_Mapping.xlsx -o my_cis_mapping.json -v "CIS v8.1 + IG Customizations" -n "Used for FedRAMP Moderate baseline alignment"
-"""
+# import locals as var
 
 def parse_cis_excel(
     input_file: str,
@@ -16,14 +7,14 @@ def parse_cis_excel(
     version: str = "CIS Controls v8.1",
     notes: str = None
 ) -> dict:
-    df = pd.read_excel(input_file, sheet_name=sheet_name, header=0)
+    df = lib.pd.read_excel(input_file, sheet_name=sheet_name, header=0)
 
     # 1. Drop column A (the repeated "CIS Control" column)
     df = df.iloc[:, 1:]
 
     # 2. Force correct column names
     expected = [
-        'CIS Sub-Control', 'Asset Type', 'Security Function', 'Title', 'Description',
+        'CIS Control', 'CIS Sub-Control', 'Asset Type', 'Security Function', 'Title', 'Description',
         'IG1', 'IG2', 'IG3', 'Relationship', 'Control Identifier',
         'Control or Control Enhancement Name', 'Control Text', 'Moderate Baseline'
     ]
@@ -34,7 +25,7 @@ def parse_cis_excel(
 
     # 4. Extract and forward-fill the main CIS Control number (1–18)
     df['CIS_Control_Num'] = df['CIS Sub-Control'].astype(str).str.extract(r'^(\d+)')
-    df['CIS_Control_Num'] = pd.to_numeric(df['CIS_Control_Num'], errors='coerce').ffill()
+    df['CIS_Control_Num'] = lib.pd.to_numeric(df['CIS_Control_Num'], errors='coerce').ffill()
 
     # 5. Extract safeguard number (e.g., "1.1")
     df['Safeguard'] = df['CIS Sub-Control'].astype(str).str.extract(r'(\d+\.\d+)')
@@ -50,7 +41,7 @@ def parse_cis_excel(
 
     result = {
         "version": version,
-        "date_created": datetime.today().strftime('%m/%d/%Y'),
+        "date_created": lib.datetime.today().strftime('%m/%d/%Y'),
         "notes": notes,
         "groups": []
     }
@@ -84,7 +75,7 @@ def parse_cis_excel(
 
             for _, r in sg_df.iterrows():
                 nist_id = r['Control Identifier']
-                if pd.isna(nist_id) or str(nist_id).strip() == '':
+                if lib.pd.isna(nist_id) or str(nist_id).strip() == '':
                     continue
 
                 nist_entry = {
@@ -106,13 +97,13 @@ def parse_cis_excel(
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = lib.argparse.ArgumentParser(
         description="Convert CIS Controls → NIST SP 800-53 Excel to structured JSON"
     )
     parser.add_argument("-i", "--input", required=True, help="Input .xlsx file")
     parser.add_argument("-s", "--sheet", default="All CIS Controls & Safeguards",
                         help="Sheet name (default: All CIS Controls & Safeguards)")
-    parser.add_argument("-o", "--output", default="cis_to_nist.json",
+    parser.add_argument("-o", "--output", default="data/output_files/cis_to_nist.json",
                         help="Output JSON file (default: cis_to_nist.json)")
     parser.add_argument("-v", "--version", default="CIS Controls v8.1",
                         help="Version string to put in JSON (default: CIS Controls v8.1)")
@@ -121,7 +112,7 @@ def main():
 
     args = parser.parse_args()
 
-    if not Path(args.input).exists():
+    if not lib.Path(args.input).exists():
         print(f"Error: Input file not found: {args.input}")
         return
 
@@ -133,7 +124,7 @@ def main():
         notes=args.notes
     )
 
-    Path(args.output).write_text(json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
+    lib.Path(args.output).write_text(lib.json.dumps(data, indent=4, ensure_ascii=False), encoding="utf-8")
 
     total_safeguards = sum(len(g["cis_sub_controls"]) for g in data["groups"])
     print(f"Success! → {args.output}")
