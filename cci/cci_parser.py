@@ -5,55 +5,30 @@ import libraries as lib
 # NIST Control Tag Normalizer
 # =============================
 def normalize_nist_control(tag: str) -> str:
-    """Convert any NIST tag format → standard AC-53 format: AC-01(a)(1)"""
     if not tag or not isinstance(tag, str):
         return ""
-
-    t = tag.strip()
-    if not t:
-        return ""
-
-    # Uppercase + remove all whitespace
-    t = lib.re.sub(r'\s+', '', t.upper())
-
-    # Pad family number: AC-1 → AC-01
+    t = lib.re.sub(r'\s+', '', tag.strip().upper())
     t = lib.re.sub(r'([A-Z]{2,})-(\d{1,3})(?=[^0-9]|$)', lambda m: f"{m.group(1)}-{m.group(2).zfill(2)}", t)
-
-    # Lowercase for enhancement parsing
     t = t.lower()
-
-    # .a → (a), a.1 → (a)(1), (a).1 → (a)(1), (a)1 → (a)(1)
     t = lib.re.sub(r'\.([a-z])', r'(\1)', t)
     t = lib.re.sub(r'\(([a-z])\)\.?(\d)', r'(\1)(\2)', t)
     t = lib.re.sub(r'\(([a-z])(\d)', r'(\1)(\2)', t)
-
-    # Expand grouped letters: (abc) → (a)(b)(c)
     def expand(match):
         return '(' + ')('.join(match.group(1)) + ')'
     t = lib.re.sub(r'\(([a-z]+)\)', expand, t)
-
     return t.upper()
 
 
 # =============================
-# HTML Parser (Corrected)
+# HTML & XML Parsers
 # =============================
 def parse_html(filepath: lib.Path) -> list[dict]:
     soup = lib.BeautifulSoup(filepath.read_text(encoding="utf-8"), "html.parser")
     tables = soup.find_all("table")
     records = []
-
     for table in tables:
         lines = [line.strip() for line in table.get_text(separator="\n").split("\n") if line.strip()]
-
-        data = {
-            "cci": None,
-            "published_date": None,
-            "definition": None,
-            "references": []
-        }
-
-        # Extract metadata from text lines
+        data = {"cci": None, "published_date": None, "definition": None, "references": []}
         i = 0
         while i < len(lines):
             line = lines[i]
@@ -71,7 +46,6 @@ def parse_html(filepath: lib.Path) -> list[dict]:
                 i = j - 1
             i += 1
 
-        # Extract NIST references from actual <td> cells (critical fix)
         capturing_refs = False
         for td in table.find_all("td"):
             text = td.get_text(strip=True)
@@ -79,33 +53,26 @@ def parse_html(filepath: lib.Path) -> list[dict]:
                 capturing_refs = True
                 continue
             if capturing_refs and text.startswith("NIST:"):
-                # Clean up: remove any trailing link text, keep only the reference
                 ref = text.split("NIST:", 1)[-1].strip()
                 if ref:
                     data["references"].append(f"NIST: {ref}")
 
         if data["cci"] and data["published_date"] and data["definition"]:
             records.append(data)
-
     return records
 
 
-# =============================
-# XML Parser
-# =============================
 def parse_xml(filepath: lib.Path) -> list[dict]:
     tree = lib.ET.parse(filepath)
     root = tree.getroot()
     ns = {"cci": "http://iase.disa.mil/cci"}
     records = []
-
     for item in root.findall(".//cci:cci_item", ns):
         refs = []
         for ref in item.findall(".//cci:reference", ns):
             title = ref.get("title", "")
             index = ref.get("index", "")
-            if not index:
-                continue
+            if not index: continue
             if "Revision 3" in title or "(v3)" in title:
                 refs.append(f"NIST: NIST SP 800-53 (v3): {index}")
             elif "Revision 4" in title:
@@ -114,38 +81,33 @@ def parse_xml(filepath: lib.Path) -> list[dict]:
                 refs.append(f"NIST: NIST SP 800-53 Revision 5 (v5): {index}")
             elif "800-53A" in title:
                 refs.append(f"NIST: NIST SP 800-53A (v1): {index}")
-
         records.append({
             "cci": item.get("id"),
             "published_date": item.findtext("cci:publishdate", namespaces=ns),
             "definition": item.findtext("cci:definition", namespaces=ns) or "",
             "references": refs
         })
-
     return records
 
 
 # =============================
-# Main Processing
+# Main Processing - Fixed to dedup per rev + tag by latest date
 # =============================
 def process_records(records: list[dict], rev_filter: str):
     if not records:
         return lib.pd.DataFrame(), {}
 
-    df = lib.pd.DataFrame(records)
+    flat_rows = []
+    for rec in records:
+        cci = rec["cci"]
+        pub_date = rec["published_date"]
+        definition = rec["definition"]
+        try:
+            dt = lib.pd.to_datetime(pub_date)
+        except:
+            continue
 
-    # Ensure date is datetime and keep only latest version per CCI
-    df['pub_date'] = lib.pd.to_datetime(df['published_date'], errors='coerce')
-    df = df.sort_values(['cci', 'pub_date'], ascending=[True, False])
-    latest_df = df.drop_duplicates(subset='cci', keep='first').copy()
-
-    # Pre-compute true latest info per CCI
-    latest_info = latest_df.set_index('cci')[['published_date', 'definition']].to_dict('index')
-
-    rows = []
-    for _, row in latest_df.iterrows():
-        cci = row['cci']
-        for ref_line in row['references']:
+        for ref_line in rec["references"]:
             if not ref_line.startswith("NIST:"):
                 continue
             parts = ref_line.split(":", 2)
@@ -168,19 +130,30 @@ def process_records(records: list[dict], rev_filter: str):
             if rev_filter != "all" and rev != rev_filter:
                 continue
 
-            rows.append({
+            norm_tag = normalize_nist_control(tag)
+            flat_rows.append({
                 "cci": cci,
-                "published_date": row['published_date'],
-                "definition": row['definition'],
+                "published_date": pub_date,
+                "pub_dt": dt,
+                "definition": definition,
                 "source": source,
                 "control_tag_raw": tag,
-                "control_tag": normalize_nist_control(tag),
+                "control_tag": norm_tag,
                 "revision": rev
             })
 
-    result_df = lib.pd.DataFrame(rows)
+    if not flat_rows:
+        return lib.pd.DataFrame(), {}
 
-    # Build JSON in your exact schema
+    df = lib.pd.DataFrame(flat_rows)
+
+    # Dedup: for each rev + norm_tag, keep only the CCI with latest pub_dt
+    df = df.sort_values("pub_dt", ascending=False).drop_duplicates(subset=["revision", "control_tag"], keep="first")
+
+    # Excel output
+    excel_df = df[['cci', 'published_date', 'definition', 'source', 'control_tag']].sort_values("cci")
+
+    # JSON output - group by CCI, with tags only if it's the latest for that rev+tag
     json_output = {
         "version": args.version,
         "date_created": lib.datetime.now().strftime("%d/%m/%Y"),
@@ -188,28 +161,25 @@ def process_records(records: list[dict], rev_filter: str):
         "cci_list": []
     }
 
-    for cci in sorted(result_df['cci'].unique()):
-        group = result_df[result_df['cci'] == cci]
+    for cci in sorted(df['cci'].unique()):
+        group = df[df['cci'] == cci]
         tags = []
-        for rev_key in ["rev_3", "rev_4", "rev_5", "53a"]:
+        rev_groups = group.groupby('revision')
+        for rev_key, rev_group in rev_groups:
             if rev_filter != "all" and rev_key != rev_filter:
                 continue
-            raw_tags = group[group['revision'] == rev_key]['control_tag_raw'].tolist()
+            raw_tags = rev_group['control_tag_raw'].unique().tolist()
             if raw_tags:
-                tags.append({rev_key: " | ".join(sorted(set(raw_tags)))})
+                tags.append({rev_key: " | ".join(sorted(raw_tags))})
 
-        info = latest_info[cci]
-        json_output["cci_list"].append({
-            "cci": cci,
-            "published_date": info['published_date'],
-            "definition": info['definition'],
-            "nist_tags": tags
-        })
-
-    # Excel DataFrame
-    excel_df = result_df[['cci', 'published_date', 'definition', 'source', 'control_tag']] \
-        .drop_duplicates() \
-        .sort_values('cci')
+        if tags:
+            row = group.iloc[0]
+            json_output["cci_list"].append({
+                "cci": cci,
+                "published_date": row['published_date'],
+                "definition": row['definition'],
+                "nist_tags": tags
+            })
 
     return excel_df, json_output
 
