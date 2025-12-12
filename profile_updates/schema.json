@@ -1,0 +1,171 @@
+{
+    "benchmark": "CIS Microsoft Windows Server 2019",
+    "version": "v3.0.1",
+    "published": "7/22/2025",
+    "sections": [
+        {
+            "section": "1.1",
+            "recommendations": [
+                {
+                    "recommendation": "1.1.1",
+                    "profile": "Level 1 - Domain Controller",
+                    "title": "(L1) Ensure 'Enforce password history' is set to '24 or more password(s)'",
+                    "assessment_status": "Automated",
+                    "description": "This policy setting determines the number of renewed, unique passwords that have to be associated with a user account before you can reuse an old password. The value for this policy setting must be between 0 and 24 passwords. The default value for stand-alone systems is 0 passwords, but the default setting when joined to a domain is 24 passwords. To maintain the effectiveness of this policy setting, use the Minimum password age setting to prevent users from repeatedly changing their password.\n\nThe recommended state for this setting is: `24 or more password(s)`.\n\n**Note:** Password Policy settings (section 1.1) and Account Lockout Policy settings (section 1.2) must be applied via the **Default Domain Policy** GPO in order to be globally in effect on **domain** user accounts as their default behavior. If these settings are configured in another GPO, they will only affect **local** user accounts on the computers that receive the GPO. However, custom exceptions to the default password policy and account lockout policy rules for specific domain users and/or groups can be defined using Password Settings Objects (PSOs), which are completely separate from Group Policy and most easily configured using Active Directory Administrative Center.\n\n**Note #2:** As of the publication of this benchmark, Microsoft currently has a maximum limit of 24 saved passwords. For more information, please visit [Enforce password history (Windows 10) - Windows security | Microsoft Docs](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/enforce-password-history#:~:text=The%20Enforce%20password%20history%20policy,a%20long%20period%20of%20time.)",
+                    "rational_statement": "The longer a user uses the same password, the greater the chance that an attacker can determine the password through brute force attacks. Also, any accounts that may have been compromised will remain exploitable for as long as the password is left unchanged. If password changes are required but password reuse is not prevented, or if users continually reuse a small number of passwords, the effectiveness of a good password policy is greatly reduced.\n\nIf you specify a low number for this policy setting, users will be able to use the same small number of passwords repeatedly. If you do not also configure the Minimum password age setting, users might repeatedly change their passwords until they can reuse their original password.",
+                    "impact_statement": "The major impact of this configuration is that users must create a new password every time they are required to change their old one. If users are required to change their passwords to new unique values, there is an increased risk of users who write their passwords somewhere so that they do not forget them. Another risk is that users may create passwords that change incrementally (for example, password01, password02, and so on) to facilitate memorization but make them easier to guess. Also, an excessively low value for the Minimum password age setting will likely increase administrative overhead, because users who forget their passwords might ask the help desk to reset them frequently.",
+                    "remediation_procedure": "To establish the recommended configuration via GP, set the following UI path to `24 or more password(s)`:\n\n```\nComputer Configuration\\Policies\\Windows Settings\\Security Settings\\Account Policies\\Password Policy\\Enforce password history\n```",
+                    "audit_procedure": "Navigate to the UI Path articulated in the Remediation section and confirm it is set as prescribed.",
+                    "additional_information": "",
+                    "cis_controls": [
+                        {
+                            "cis_control": "5.2",
+                            "cis_version": "v8",
+                            "title": "Use Unique Passwords CONTROL:v8 5.2 DESCRIPTION:Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA.",
+                            "description": "Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA."
+                        },
+                        {
+                            "cis_control": "16.2",
+                            "cis_version": "v7",
+                            "title": "Configure Centralized Point of Authentication CONTROL:v7 16.2 DESCRIPTION:Configure access for all accounts through as few centralized points of authentication as possible, including network, security, and cloud systems.",
+                            "description": "Configure access for all accounts through as few centralized points of authentication as possible, including network, security, and cloud systems."
+                        }
+                    ],
+                    "cis_safeguards": [
+                        {
+                            "v8": [
+                                {
+                                    "safeguard_1": "5.2",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": true,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ],
+                            "v7": [
+                                {
+                                    "safeguard_1": "16.2",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": false,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ]
+                        }
+                    ],
+                    "references": "https://www.cisecurity.org/white-papers/cis-password-policy-guide/",
+                    "default_value": "24 passwords remembered on domain members. 0 passwords remembered on stand-alone servers.",
+                    "nist_controls": []
+                },
+                {
+                    "recommendation": "1.1.1",
+                    "profile": "Level 1 - Member Server",
+                    "title": "(L1) Ensure 'Enforce password history' is set to '24 or more password(s)'",
+                    "assessment_status": "Automated",
+                    "description": "This policy setting determines the number of renewed, unique passwords that have to be associated with a user account before you can reuse an old password. The value for this policy setting must be between 0 and 24 passwords. The default value for stand-alone systems is 0 passwords, but the default setting when joined to a domain is 24 passwords. To maintain the effectiveness of this policy setting, use the Minimum password age setting to prevent users from repeatedly changing their password.\n\nThe recommended state for this setting is: `24 or more password(s)`.\n\n**Note:** Password Policy settings (section 1.1) and Account Lockout Policy settings (section 1.2) must be applied via the **Default Domain Policy** GPO in order to be globally in effect on **domain** user accounts as their default behavior. If these settings are configured in another GPO, they will only affect **local** user accounts on the computers that receive the GPO. However, custom exceptions to the default password policy and account lockout policy rules for specific domain users and/or groups can be defined using Password Settings Objects (PSOs), which are completely separate from Group Policy and most easily configured using Active Directory Administrative Center.\n\n**Note #2:** As of the publication of this benchmark, Microsoft currently has a maximum limit of 24 saved passwords. For more information, please visit [Enforce password history (Windows 10) - Windows security | Microsoft Docs](https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/enforce-password-history#:~:text=The%20Enforce%20password%20history%20policy,a%20long%20period%20of%20time.)",
+                    "rational_statement": "The longer a user uses the same password, the greater the chance that an attacker can determine the password through brute force attacks. Also, any accounts that may have been compromised will remain exploitable for as long as the password is left unchanged. If password changes are required but password reuse is not prevented, or if users continually reuse a small number of passwords, the effectiveness of a good password policy is greatly reduced.\n\nIf you specify a low number for this policy setting, users will be able to use the same small number of passwords repeatedly. If you do not also configure the Minimum password age setting, users might repeatedly change their passwords until they can reuse their original password.",
+                    "impact_statement": "The major impact of this configuration is that users must create a new password every time they are required to change their old one. If users are required to change their passwords to new unique values, there is an increased risk of users who write their passwords somewhere so that they do not forget them. Another risk is that users may create passwords that change incrementally (for example, password01, password02, and so on) to facilitate memorization but make them easier to guess. Also, an excessively low value for the Minimum password age setting will likely increase administrative overhead, because users who forget their passwords might ask the help desk to reset them frequently.",
+                    "remediation_procedure": "To establish the recommended configuration via GP, set the following UI path to `24 or more password(s)`:\n\n```\nComputer Configuration\\Policies\\Windows Settings\\Security Settings\\Account Policies\\Password Policy\\Enforce password history\n```",
+                    "audit_procedure": "Navigate to the UI Path articulated in the Remediation section and confirm it is set as prescribed.",
+                    "additional_information": "",
+                    "cis_controls": [
+                        {
+                            "cis_control": "5.2",
+                            "cis_version": "v8",
+                            "title": "Use Unique Passwords CONTROL:v8 5.2 DESCRIPTION:Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA.",
+                            "description": "Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA."
+                        },
+                        {
+                            "cis_control": "16.2",
+                            "cis_version": "v7",
+                            "title": "Configure Centralized Point of Authentication CONTROL:v7 16.2 DESCRIPTION:Configure access for all accounts through as few centralized points of authentication as possible, including network, security, and cloud systems.",
+                            "description": "Configure access for all accounts through as few centralized points of authentication as possible, including network, security, and cloud systems."
+                        }
+                    ],
+                    "cis_safeguards": [
+                        {
+                            "v8": [
+                                {
+                                    "safeguard_1": "5.2",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": true,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ],
+                            "v7": [
+                                {
+                                    "safeguard_1": "16.2",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": false,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ]
+                        }
+                    ],
+                    "references": "https://www.cisecurity.org/white-papers/cis-password-policy-guide/",
+                    "default_value": "24 passwords remembered on domain members. 0 passwords remembered on stand-alone servers.",
+                    "nist_controls": []
+                },
+                {
+                    "recommendation": "1.1.2",
+                    "profile": "Level 1 - Domain Controller",
+                    "title": "(L1) Ensure 'Maximum password age' is set to '365 or fewer days, but not 0'",
+                    "assessment_status": "Automated",
+                    "description": "This policy setting defines how long a user can use their password before it expires.\n\nValues for this policy setting range from 0 to 999 days. If you set the value to 0, the password will never expire.\n\nBecause attackers can crack passwords, the more frequently you change the password the less opportunity an attacker has to use a cracked password. However, the lower this value is set, the higher the potential for an increase in calls to help desk support due to users having to change their password or forgetting which password is current.\n\nThe recommended state for this setting is `365 or fewer days, but not 0`.\n\n**Note:** Password Policy settings (section 1.1) and Account Lockout Policy settings (section 1.2) must be applied via the **Default Domain Policy** GPO in order to be globally in effect on **domain** user accounts as their default behavior. If these settings are configured in another GPO, they will only affect **local** user accounts on the computers that receive the GPO. However, custom exceptions to the default password policy and account lockout policy rules for specific domain users and/or groups can be defined using Password Settings Objects (PSOs), which are completely separate from Group Policy and most easily configured using Active Directory Administrative Center.",
+                    "rational_statement": "The longer a password exists the higher the likelihood that it will be compromised by a brute force attack, by an attacker gaining general knowledge about the user, or by the user sharing the password. Configuring the Maximum password age setting to 0 so that users are never required to change their passwords is a major security risk because that allows a compromised password to be used by the malicious user for as long as the valid user has authorized access.",
+                    "impact_statement": "If the Maximum password age setting is too low, users are required to change their passwords very often. Such a configuration can reduce security in the organization, because users might write their passwords in an insecure location or lose them. If the value for this policy setting is too high, the level of security within an organization is reduced because it allows potential attackers more time in which to discover user passwords or to use compromised accounts.",
+                    "remediation_procedure": "To establish the recommended configuration via GP, set the following UI path to `365 or fewer days, but not 0`:\n\n```\nComputer Configuration\\Policies\\Windows Settings\\Security Settings\\Account Policies\\Password Policy\\Maximum password age\n```",
+                    "audit_procedure": "Navigate to the UI Path articulated in the Remediation section and confirm it is set as prescribed.",
+                    "additional_information": "",
+                    "cis_controls": [
+                        {
+                            "cis_control": "5.2",
+                            "cis_version": "v8",
+                            "title": "Use Unique Passwords CONTROL:v8 5.2 DESCRIPTION:Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA.",
+                            "description": "Use unique passwords for all enterprise assets. Best practice implementation includes, at a minimum, an 8-character password for accounts using MFA and a 14-character password for accounts not using MFA."
+                        },
+                        {
+                            "cis_control": "16.10",
+                            "cis_version": "v7",
+                            "title": "Ensure All Accounts Have An Expiration Date CONTROL:v7 16.10 DESCRIPTION:Ensure that all accounts have an expiration date that is monitored and enforced.",
+                            "description": "Ensure that all accounts have an expiration date that is monitored and enforced."
+                        }
+                    ],
+                    "cis_safeguards": [
+                        {
+                            "v8": [
+                                {
+                                    "safeguard_1": "5.2",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": true,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ],
+                            "v7": [
+                                {
+                                    "safeguard_1": "16.10",
+                                    "safeguard_2": "",
+                                    "safeguard_3": "",
+                                    "IG1": false,
+                                    "IG2": true,
+                                    "IG3": true
+                                }
+                            ]
+                        }
+                    ],
+                    "references": "https://www.cisecurity.org/white-papers/cis-password-policy-guide/",
+                    "default_value": "42 days.",
+                    "nist_controls": []
+                }
+            ]
+        }
+    ]
+}

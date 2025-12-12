@@ -1,7 +1,5 @@
 # CIS To XCCDF Compliant XML
 
-
-
 ```bash
 python cis_to_xccdf.py \
     -i cis_benchmark.json \

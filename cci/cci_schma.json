@@ -1,0 +1,27 @@
+{
+    "version": "v1",
+    "date_created": "12/12/2025",
+    "comments": "complete CCI list from DISA",
+    "cci_list": [
+        {
+                "cci": "CCI-000002",
+                "published_date": "2009-09-14",
+                "definition": "Disseminate the organization-level; mission/business process-level; and/or system-level access control policy that addresses purpose, scope, roles, responsibilities, management commitment, coordination among organizational entities, and compliance to organization-defined personnel or roles.",
+                "nist_controls": [
+                    {
+                        "rev_3": "AC-1 a"
+                    },
+                    {
+                        "rev_4": "AC-1 a 1"
+                    },
+                    {
+                        "rev_5": "AC-1 a 1 (a)"
+                    },
+                    {
+                        "53a": "AC-1.1 (iii)"
+                    }
+                ]
+            }
+        ]
+        
+}

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import libraries as lib
-import argparse
-import os
 
 def normalize_nist(tag):
     tag = tag.upper().replace(' ', '').replace('.', '').replace('(', '').replace(')', '')
@@ -95,12 +93,12 @@ def update_rb_file(file_path, catalog):
     
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')  # Ensure newline at EOF
-    print(f"✅  Updated {os.path.basename(file_path)} with {len(new_tags)} new tag(s)")
+    print(f"✅  Updated {lib.os.path.basename(file_path)} with {len(new_tags)} new tag(s)")
 
 def main(directory_path, catalog_path):
-    if not os.path.isdir(directory_path):
+    if not lib.os.path.isdir(directory_path):
         lib.argparse.ArgumentParser.exit(1, f"Error: Ruby directory not found: {directory_path}\n")
-    if not os.path.isfile(catalog_path):
+    if not lib.os.path.isfile(catalog_path):
         lib.argparse.ArgumentParser.exit(1, f"Error: Catalog file not found: {catalog_path}\n")
 
     with open(catalog_path, 'r', encoding='utf-8') as f:
@@ -117,24 +115,12 @@ def main(directory_path, catalog_path):
     print(f"\nDone! Processed {updated_count} .rb files.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
+    parser = lib.argparse.ArgumentParser(
         description="Update InSpec profiles (.rb files) with enriched tags from a catalog using existing NIST tags."
     )
-    parser.add_argument(
-        "-r", "--ruby-dir",
-        required=True,
-        help="Path to directory containing .rb control files"
-    )
-    parser.add_argument(
-        "-c", "--catalog",
-        required=True,
-        help="Path to catalog.json file with enriched tag data"
-    )
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Increase output verbosity"
-    )
+    parser.add_argument("-r", "--ruby-dir",required=True, help="Path to directory containing .rb control files")
+    parser.add_argument("-c", "--catalog",required=True, help="Path to catalog.json file with enriched tag data")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Increase output verbosity")
 
     args = parser.parse_args()
 
