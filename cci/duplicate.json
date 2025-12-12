@@ -1,0 +1,46 @@
+{
+    "ccis": [
+        {
+            "cci": "CCI-000002",
+            "published_date": "2009-09-14",
+            "definition": "Disseminate the organization-level; mission/business process-level; and/or system-level access control policy that addresses purpose, scope, roles, responsibilities, management commitment, coordination among organizational entities, and compliance to organization-defined personnel or roles.",
+            "nist_tags": [
+                {
+                    "rev_3": "AC-1 a"
+                },
+                {
+                    "rev_4": "AC-1 a 1"
+                },
+                {
+                    "rev_5": "AC-1 a 1 (a)"
+                },
+                {
+                    "53a": "AC-1.1 (iii)"
+                }
+            ]
+        },
+        {
+            "cci": "CCI-002107",
+            "published_date": "2013-06-24",
+            "definition": "Defines the personnel or roles to be recipients of the organization-level; mission/business process-level; and/or system-level access control policy necessary to facilitate the implementation of the access control policy and associated access controls.",
+            "nist_tags": [
+                {
+                    "rev_4": "AC-1 a 1"
+                },
+                {
+                    "rev_5": "AC-1 a 1 (a)"
+                }
+            ]
+        },
+        {
+            "cci": "CCI-003602",
+            "published_date": "2022-03-01",
+            "definition": "Develop and document an organization-level; mission/business process-level; and/or system-level access control policy that addresses purpose, scope, roles, responsibilities, management commitment, coordination among organizational entities, and compliance.",
+            "nist_tags": [
+                {
+                    "rev_5": "AC-1 a 1 (a)"
+                }
+            ]
+        }
+    ]
+}
