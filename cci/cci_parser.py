@@ -1,33 +1,5 @@
-#!/usr/bin/env python3
-"""
-cci_parser.py
-
-Parse DISA CCI List (HTML or XML) → clean Excel (.xlsx) or JSON (exact schema match)
-
-Features:
-  • Auto-detects output format from filename extension (.xlsx or .json)
-  • Only keeps the most recent version of each CCI
-  • Correctly extracts all NIST references from HTML (including multi-row refs)
-  • Normalizes control tags: AC-1 a 1 → AC-01(a)(1)
-  • Filters by revision: v3, v4, v5, 53a, or all
-  • Works perfectly with U_CCI_List.html and U_CCI_List.xml
-
-Usage:
-  python cci_parser.py -i U_CCI_List.html -o cci_rev5.json     -r v5 -v "2025-01-23"
-  python cci_parser.py -i U_CCI_List.xml  -o full_cci.xlsx     -r all
-"""
-
-import argparse
-import sys
-import re
-import json
-from pathlib import Path
-from datetime import datetime
-
-import pandas as pd
-from bs4 import BeautifulSoup
-import xml.etree.ElementTree as ET
-
+#!/usr/bin/python3
+import libraries as lib
 
 # =============================
 # NIST Control Tag Normalizer
@@ -42,23 +14,23 @@ def normalize_nist_control(tag: str) -> str:
         return ""
 
     # Uppercase + remove all whitespace
-    t = re.sub(r'\s+', '', t.upper())
+    t = lib.re.sub(r'\s+', '', t.upper())
 
     # Pad family number: AC-1 → AC-01
-    t = re.sub(r'([A-Z]{2,})-(\d{1,3})(?=[^0-9]|$)', lambda m: f"{m.group(1)}-{m.group(2).zfill(2)}", t)
+    t = lib.re.sub(r'([A-Z]{2,})-(\d{1,3})(?=[^0-9]|$)', lambda m: f"{m.group(1)}-{m.group(2).zfill(2)}", t)
 
     # Lowercase for enhancement parsing
     t = t.lower()
 
     # .a → (a), a.1 → (a)(1), (a).1 → (a)(1), (a)1 → (a)(1)
-    t = re.sub(r'\.([a-z])', r'(\1)', t)
-    t = re.sub(r'\(([a-z])\)\.?(\d)', r'(\1)(\2)', t)
-    t = re.sub(r'\(([a-z])(\d)', r'(\1)(\2)', t)
+    t = lib.re.sub(r'\.([a-z])', r'(\1)', t)
+    t = lib.re.sub(r'\(([a-z])\)\.?(\d)', r'(\1)(\2)', t)
+    t = lib.re.sub(r'\(([a-z])(\d)', r'(\1)(\2)', t)
 
     # Expand grouped letters: (abc) → (a)(b)(c)
     def expand(match):
         return '(' + ')('.join(match.group(1)) + ')'
-    t = re.sub(r'\(([a-z]+)\)', expand, t)
+    t = lib.re.sub(r'\(([a-z]+)\)', expand, t)
 
     return t.upper()
 
@@ -66,8 +38,8 @@ def normalize_nist_control(tag: str) -> str:
 # =============================
 # HTML Parser (Corrected)
 # =============================
-def parse_html(filepath: Path) -> list[dict]:
-    soup = BeautifulSoup(filepath.read_text(encoding="utf-8"), "html.parser")
+def parse_html(filepath: lib.Path) -> list[dict]:
+    soup = lib.BeautifulSoup(filepath.read_text(encoding="utf-8"), "html.parser")
     tables = soup.find_all("table")
     records = []
 
@@ -121,8 +93,8 @@ def parse_html(filepath: Path) -> list[dict]:
 # =============================
 # XML Parser
 # =============================
-def parse_xml(filepath: Path) -> list[dict]:
-    tree = ET.parse(filepath)
+def parse_xml(filepath: lib.Path) -> list[dict]:
+    tree = lib.ET.parse(filepath)
     root = tree.getroot()
     ns = {"cci": "http://iase.disa.mil/cci"}
     records = []
@@ -158,12 +130,12 @@ def parse_xml(filepath: Path) -> list[dict]:
 # =============================
 def process_records(records: list[dict], rev_filter: str):
     if not records:
-        return pd.DataFrame(), {}
+        return lib.pd.DataFrame(), {}
 
-    df = pd.DataFrame(records)
+    df = lib.pd.DataFrame(records)
 
     # Ensure date is datetime and keep only latest version per CCI
-    df['pub_date'] = pd.to_datetime(df['published_date'], errors='coerce')
+    df['pub_date'] = lib.pd.to_datetime(df['published_date'], errors='coerce')
     df = df.sort_values(['cci', 'pub_date'], ascending=[True, False])
     latest_df = df.drop_duplicates(subset='cci', keep='first').copy()
 
@@ -206,12 +178,12 @@ def process_records(records: list[dict], rev_filter: str):
                 "revision": rev
             })
 
-    result_df = pd.DataFrame(rows)
+    result_df = lib.pd.DataFrame(rows)
 
     # Build JSON in your exact schema
     json_output = {
         "version": args.version,
-        "date_created": datetime.now().strftime("%d/%m/%Y"),
+        "date_created": lib.datetime.now().strftime("%d/%m/%Y"),
         "comments": args.notes or "Generated from DISA CCI list",
         "cci_list": []
     }
@@ -246,32 +218,27 @@ def process_records(records: list[dict], rev_filter: str):
 # CLI & Main
 # =============================
 def main():
-    parser = argparse.ArgumentParser(
+    parser = lib.argparse.ArgumentParser(
         description="DISA CCI List → Excel (.xlsx) or JSON (auto-detect from extension)",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=lib.argparse.RawTextHelpFormatter
     )
-    parser.add_argument("-i", "--input", type=Path, required=True,
-                        help="Input: U_CCI_List.html or U_CCI_List.xml")
-    parser.add_argument("-o", "--output", type=Path, required=True,
-                        help="Output file (.xlsx or .json)")
-    parser.add_argument("-v", "--version", default="unknown",
-                        help="Version string for JSON metadata")
-    parser.add_argument("-n", "--notes", default=None,
-                        help="Optional notes for JSON")
-    parser.add_argument("-r", "--revision", choices=['v3', 'v4', 'v5', '53a', 'all'],
-                        default='all', help="Filter to specific NIST revision")
+    parser.add_argument("-i", "--input", type=lib.Path, required=True, help="Input: U_CCI_List.html or U_CCI_List.xml")
+    parser.add_argument("-o", "--output", type=lib.Path, required=True, help="Output file (.xlsx or .json)")
+    parser.add_argument("-v", "--version", default="unknown", help="Version string for JSON metadata")
+    parser.add_argument("-n", "--notes", default=None, help="Optional notes for JSON")
+    parser.add_argument("-r", "--revision", choices=['v3', 'v4', 'v5', '53a', 'all'], default='all', help="Filter to specific NIST revision")
 
     global args
     args = parser.parse_args()
 
     if not args.input.exists():
         print(f"Error: Input file not found: {args.input}")
-        sys.exit(1)
+        lib.sys.exit(1)
 
     ext = args.output.suffix.lower()
     if ext not in {".xlsx", ".json"}:
         print("Error: Output must end in .xlsx or .json")
-        sys.exit(1)
+        lib.sys.exit(1)
     is_json = ext == ".json"
 
     # Parse input
@@ -283,7 +250,7 @@ def main():
         records = parse_xml(args.input)
     else:
         print("Error: Input must be .html or .xml")
-        sys.exit(1)
+        lib.sys.exit(1)
 
     rev_map = {'v3': 'rev_3', 'v4': 'rev_4', 'v5': 'rev_5', '53a': '53a', 'all': 'all'}
     filter_rev = rev_map[args.revision]
@@ -292,16 +259,16 @@ def main():
 
     if excel_df.empty and not json_data["cci_list"]:
         print("No records after filtering.")
-        sys.exit(0)
+        lib.sys.exit(0)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     if is_json:
         with open(args.output, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, indent=4, ensure_ascii=False)
+            lib.json.dump(json_data, f, indent=4, ensure_ascii=False)
         print(f"JSON written → {args.output} ({len(json_data['cci_list'])} CCIs)")
     else:
-        with pd.ExcelWriter(args.output, engine="openpyxl") as writer:
+        with lib.pd.ExcelWriter(args.output, engine="openpyxl") as writer:
             excel_df.to_excel(writer, index=False, sheet_name="CCI_List")
         print(f"Excel written → {args.output} ({len(excel_df)} rows)")
 
