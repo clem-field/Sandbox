@@ -1,0 +1,21 @@
+metadata:
+  publisher: "Center for Internet Security (CIS)"
+  dc_identifier: 3000
+
+profiles:
+  "Level 1 - Domain Controller": "CIS_L1_DC"
+  "Level 1 - Member Server": "CIS_L1_MS"
+  "Level 2 - Domain Controller": "CIS_L2_DC"
+
+severity:
+  "Level 1": "medium"
+  "Level 2": "high"
+
+check_content_href: "CIS_Windows_Server_2019_Manual_Checks.xml"
+
+cci_mappings:
+  "1.1.1": ["CCI-000192", "CCI-001619"]
+  "1.1.2": ["CCI-000366"]
+
+skip:
+  - "9.1.1"  # Known false positive
